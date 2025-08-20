@@ -2139,14 +2139,14 @@ body {
 }
 
 .chat-message.bot .message-content {
-  background: var(--color-bg-5);
+  background: transparent;
   padding: var(--space-12);
   border-radius: var(--radius-base);
   font-size: var(--font-size-sm);
 }
 
 .chat-message.user .message-content {
-  background: var(--color-primary);
+  background: transparent;
   color: white;
   padding: var(--space-12);
   border-radius: var(--radius-base);
@@ -2608,14 +2608,3 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* User bubble */
-.chat-message.user .message-content {
-  background: #8e24aa;  /* strong purple */
-  color: white;
-  padding: 8px 12px;
-  border-radius: 12px;
-  max-width: 80%;
-  display: inline-block;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-  margin-left: auto;   /* align right */
-}
