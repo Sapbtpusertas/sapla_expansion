@@ -2485,3 +2485,166 @@ body {
 .rag-highlight { box-shadow: 0 0 0 4px rgba(123,44,191,0.14) inset; transition: box-shadow 300ms ease; }
 .rag-command-popup { position: fixed; left:50%; top:50%; transform: translate(-50%,-50%); background:#1b0420; color:#fff; padding:16px; border-radius:8px; z-index:99999; width: min(900px, 95%); max-height:80vh; overflow:auto; }
 .drilldown-btn { margin:6px 6px 0 0; background:#ffd166; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
+
+
+/* === Chatbot Floating UI === */
+.chatbot-float {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  font-family: sans-serif;
+}
+
+/* Chatbot Button */
+.chatbot-btn {
+  background: #6a1b9a; /* Purple accent */
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.chatbot-btn:hover {
+  background: #8e24aa;
+}
+
+/* Chatbot Panel */
+.chatbot-panel {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 350px;
+  max-height: 500px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chatbot-panel.hidden {
+  display: none;
+}
+
+/* Header */
+.chatbot-header {
+  background: #6a1b9a;
+  color: white;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chatbot-header h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.chatbot-close {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+/* Messages */
+.chatbot-messages {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  background: #f8f8fb;
+}
+.chat-message {
+  display: flex;
+  margin-bottom: 10px;
+}
+.chat-message.user {
+  justify-content: flex-end;
+}
+.chat-message.bot {
+  justify-content: flex-start;
+}
+.chat-message .message-content {
+  padding: 8px 12px;
+  border-radius: 16px;
+  max-width: 70%;
+  line-height: 1.4;
+  font-size: 14px;
+  word-wrap: break-word;
+}
+.chat-message.user .message-content {
+  background: #6a1b9a;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.chat-message.bot .message-content {
+  background: #e1bee7; /* light purple */
+  color: #2c003e;
+  border-bottom-left-radius: 4px;
+}
+
+/* Input area */
+.chatbot-input {
+  display: flex;
+  border-top: 1px solid #ddd;
+  padding: 8px;
+}
+.chatbot-input input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  font-size: 14px;
+  outline: none;
+}
+.chatbot-input button {
+  background: #6a1b9a;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: background 0.3s;
+}
+.chatbot-input button:hover {
+  background: #8e24aa;
+}
+
+/* Drilldown Buttons inside chat */
+.drilldown-btn {
+  display: inline-block;
+  margin: 6px 0 0 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: none;
+  border-radius: 12px;
+  background: #f3e5f5;
+  color: #4a148c;
+  cursor: pointer;
+}
+.drilldown-btn:hover {
+  background: #e1bee7;
+}
+
+
+/* Resizable & Draggable */
+.chatbot-panel {
+  resize: both;              /* native resize bottom-right */
+  overflow: auto;            /* ensure scrollbars if resized */
+  cursor: grab;              /* show grab cursor */
+}
+.chatbot-panel.dragging {
+  cursor: grabbing;
+  opacity: 0.9;              /* slight transparency while dragging */
+  transition: none;
+}

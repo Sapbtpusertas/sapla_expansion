@@ -75,18 +75,117 @@
   // -------------------------
   // If the page already has a chat area, prefer it. Otherwise create one and append to body.
   (function ensureChatUI() {
-    const chatContainer = document.getElementById("chatbot-container"); // <-- your themed container
-    if (!chatContainer) {
-      console.warn("Chatbot container not found, fallback to floating panel.");
+    const btn = document.getElementById("chatbot-btn");
+    const panel = document.getElementById("chatbot-panel");
+    const closeBtn = document.getElementById("chatbot-close");
+    const messages = document.getElementById("chatbot-messages");
+    const input = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("chat-send");
+
+    if (!btn || !panel || !closeBtn || !messages || !input || !sendBtn) {
+      console.warn("Chatbot elements not found in DOM");
       return;
     }
-    // ensure #chatMessages and #chatForm exist inside
-    const messages = chatContainer.querySelector("#chatMessages");
-    const form = chatContainer.querySelector("#chatForm");
-    if (!messages || !form) {
-      console.error("Chatbot markup incomplete in index.html");
+
+      // === Make chatbot draggable ===
+    let isDragging = false;
+    let offsetX, offsetY;
+
+    const floatWrapper = document.getElementById("chatbot-float");
+
+    if (floatWrapper) {
+      // Start drag on header
+      const header = panel.querySelector(".chatbot-header");
+      header.style.cursor = "move";
+
+      header.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        offsetX = e.clientX - floatWrapper.offsetLeft;
+        offsetY = e.clientY - floatWrapper.offsetTop;
+        panel.classList.add("dragging");
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+          floatWrapper.style.left = e.clientX - offsetX + "px";
+          floatWrapper.style.top = e.clientY - offsetY + "px";
+          floatWrapper.style.right = "auto"; // override right so free move works
+          floatWrapper.style.bottom = "auto";
+          floatWrapper.style.position = "fixed";
+        }
+      });
+
+      document.addEventListener("mouseup", () => {
+        isDragging = false;
+        panel.classList.remove("dragging");
+      });
     }
+
+
+    // Toggle open/close
+    btn.addEventListener("click", () => {
+      panel.classList.toggle("hidden");
+    });
+    closeBtn.addEventListener("click", () => {
+      panel.classList.add("hidden");
+    });
+
+    // Message helpers
+    function addMessage(role, text) {
+      const msg = document.createElement("div");
+      msg.className = `chat-message ${role}`;
+      msg.innerHTML = `<div class="message-content">${text}</div>`;
+      messages.appendChild(msg);
+      messages.scrollTop = messages.scrollHeight;
+      return msg;
+    }
+
+    function updateMessage(msg, text) {
+      msg.querySelector(".message-content").innerText = text;
+    }
+
+    async function handleSend() {
+      const query = input.value.trim();
+      if (!query) return;
+
+      addMessage("user", query);
+      input.value = "";
+
+      const botMsg = addMessage("bot", "Thinking...");
+
+      try {
+        const result = await askChatbot(query);
+        updateMessage(botMsg, result.answer);
+
+        // Drilldowns if available
+        if (result.sources) {
+          result.sources.forEach(src => {
+            if (src.command_query && src.command_query.startsWith("dashboard://")) {
+              const drill = document.createElement("button");
+              drill.className = "drilldown-btn";
+              drill.innerText = `🔎 Drilldown: ${src.checkname}`;
+              drill.addEventListener("click", () => openDrilldown(src.command_query));
+              messages.appendChild(drill);
+            }
+          });
+        }
+      } catch (err) {
+        updateMessage(botMsg, "Error: " + err.message);
+      }
+    }
+
+    // Send on button click
+    sendBtn.addEventListener("click", handleSend);
+
+    // Send on Enter key
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSend();
+      }
+    });
   })();
+
 
 
   // chat-message utilities
