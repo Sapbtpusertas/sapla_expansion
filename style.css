@@ -2470,22 +2470,6 @@ body {
     position: static !important; /* Override the previous sticky setting */
 }
 
-/* --- RAG UI theme patch (purple-themed) --- */
-.chatbot-rag { position: fixed; right: 18px; bottom: 18px; width: 340px; max-height: 70vh; background: linear-gradient(180deg,#350a4a,#2b0533); color: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); padding: 12px; z-index: 9999; }
-.chatbot-rag .chatbot-rag-header { font-weight:700; margin-bottom:8px; }
-.chat-messages { overflow:auto; max-height:50vh; padding:8px; }
-.chat-message.user { background: rgba(255,255,255,0.08); padding:8px; margin:6px 0; border-radius:8px; color:#fff; }
-.chat-message.bot { background: rgba(0,0,0,0.2); padding:8px; margin:6px 0; border-radius:8px; color:#fff; }
-.chat-form { display:flex; gap:8px; margin-top:8px; }
-.chat-form input { flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color:#fff; }
-.chat-form button { padding:8px 12px; border-radius:8px; border:none; background:#7b2cbf; color:#fff; cursor:pointer; }
-.rag-modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.5); z-index: 99999; }
-.rag-modal-content { background:#2b0633; color:#fff; padding:18px; border-radius:10px; width: min(900px, 96%); max-height: 86vh; overflow:auto; }
-.rag-modal-close { margin-top:12px; background:#7b2cbf; border:none; padding:8px 10px; border-radius:6px; color:#fff; cursor:pointer; }
-.rag-highlight { box-shadow: 0 0 0 4px rgba(123,44,191,0.14) inset; transition: box-shadow 300ms ease; }
-.rag-command-popup { position: fixed; left:50%; top:50%; transform: translate(-50%,-50%); background:#1b0420; color:#fff; padding:16px; border-radius:8px; z-index:99999; width: min(900px, 95%); max-height:80vh; overflow:auto; }
-.drilldown-btn { margin:6px 6px 0 0; background:#ffd166; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
-
 
 /* === Chatbot Floating UI === */
 .chatbot-float {
@@ -2636,15 +2620,3 @@ body {
   background: #e1bee7;
 }
 
-
-/* Resizable & Draggable */
-.chatbot-panel {
-  resize: both;              /* native resize bottom-right */
-  overflow: auto;            /* ensure scrollbars if resized */
-  cursor: grab;              /* show grab cursor */
-}
-.chatbot-panel.dragging {
-  cursor: grabbing;
-  opacity: 0.9;              /* slight transparency while dragging */
-  transition: none;
-}
