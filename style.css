@@ -2513,33 +2513,7 @@ body {
 
 
 
-/* Input area */
-.chatbot-input {
-  display: flex;
-  border-top: 1px solid #ddd;
-  padding: 8px;
-}
-.chatbot-input input {
-  flex: 1;
-  border: none;
-  padding: 10px;
-  font-size: 14px;
-  outline: none;
-}
-.chatbot-input button {
-  background: #6a1b9a;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: pointer;
-  margin-left: 6px;
-  transition: background 0.3s;
-}
+
 .chatbot-input button:hover {
   background: #8e24aa;
 }
