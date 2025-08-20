@@ -2128,7 +2128,11 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-
+.chatbot-messages {
+  height: 300px;
+  overflow-y: auto;
+  padding: var(--space-16);
+}
 
 .chat-message {
   margin-bottom: var(--space-12);
@@ -2530,24 +2534,7 @@ body {
   overflow-y: auto;
   background: #f8f8fb;
 }
-.chat-message {
-  display: flex;
-  margin-bottom: 10px;
-}
-.chat-message.user {
-  justify-content: flex-end;
-}
-.chat-message.bot {
-  justify-content: flex-start;
-}
-.chat-message .message-content {
-  padding: 8px 12px;
-  border-radius: 16px;
-  max-width: 70%;
-  line-height: 1.4;
-  font-size: 14px;
-  word-wrap: break-word;
-}
+
 
 
 
