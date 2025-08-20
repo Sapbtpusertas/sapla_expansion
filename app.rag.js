@@ -109,8 +109,6 @@
         if (isDragging) {
           floatWrapper.style.left = e.clientX - offsetX + "px";
           floatWrapper.style.top = e.clientY - offsetY + "px";
-          floatWrapper.style.right = "auto"; // override right so free move works
-          floatWrapper.style.bottom = "auto";
           floatWrapper.style.position = "fixed";
         }
       });
