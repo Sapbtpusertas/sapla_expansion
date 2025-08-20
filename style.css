@@ -2640,3 +2640,10 @@ body {
   cursor: pointer;
   margin-left: 6px;
 }
+.chatbot-panel.maximized {
+  width: 90% !important;
+  height: 90% !important;
+  bottom: 5% !important;
+  right: 5% !important;
+  border-radius: 12px;
+}

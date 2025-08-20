@@ -150,7 +150,10 @@
       e.stopPropagation();
       panel.classList.add("hidden");
     });
-
+    const maximizeBtn = document.getElementById("chatbot-maximize");
+    maximizeBtn.addEventListener("click", () => {
+      panel.classList.toggle("maximized");
+    });
     // Close when clicking outside the panel
     document.addEventListener("click", (e) => {
       if (!panel.classList.contains("hidden")) {
