@@ -2527,14 +2527,6 @@ body {
   cursor: pointer;
 }
 
-/* Messages */
-.chatbot-messages {
-  flex: 1;
-  padding: 12px;
-  overflow-y: auto;
-  background: #f8f8fb;
-}
-
 
 
 
