@@ -75,44 +75,19 @@
   // -------------------------
   // If the page already has a chat area, prefer it. Otherwise create one and append to body.
   (function ensureChatUI() {
-    let chatContainer = safeQuery("#chatbot-rag-container");
-    if (chatContainer) return;
-
-    // Try to find sidebar or container area: prefer element with class 'chatbot' or '#chatMessages'
-    const existing = safeQuery(".chatbot") || safeQuery("#chatMessages") || safeQuery("#chat-container");
-    if (existing) {
-      // If existing is a container that can hold children, create minimal inputs under it.
-      chatContainer = el("div", { id: "chatbot-rag-container", class: "chatbot-rag-wrapper" });
-      // create inner chat area if not present
-      const messages = existing.querySelector("#chatMessages") || el("div", { id: "chatMessages", class: "chat-messages" });
-      const form = existing.querySelector("#chatForm") || el("form", { id: "chatForm", class: "chat-form" });
-      if (!existing.querySelector("#chatMessages")) messages.classList.add("created-by-rag");
-      if (!existing.querySelector("#chatForm")) {
-        const input = el("input", { id: "chatInput", placeholder: "Ask me about the SAP landscape..." });
-        const btn = el("button", { type: "submit", id: "chatSendBtn" }, ["Send"]);
-        form.appendChild(input); form.appendChild(btn);
-      }
-      chatContainer.appendChild(messages);
-      chatContainer.appendChild(form);
-      existing.appendChild(chatContainer);
-      console.log("app.rag.js: Re-used existing container for chat UI.");
+    const chatContainer = document.getElementById("chatbot-container"); // <-- your themed container
+    if (!chatContainer) {
+      console.warn("Chatbot container not found, fallback to floating panel.");
       return;
     }
-
-    // Otherwise create a floating panel on the right
-    chatContainer = el("aside", { id: "chatbot-rag-container", class: "chatbot-rag" });
-    const header = el("div", { class: "chatbot-rag-header" }, [el("strong", {}, ["AI Assistant"])]);
-    const messages = el("div", { id: "chatMessages", class: "chat-messages" });
-    const form = el("form", { id: "chatForm", class: "chat-form" });
-    const input = el("input", { id: "chatInput", placeholder: "Ask me about the SAP landscape..." });
-    const send = el("button", { type: "submit", id: "chatSendBtn" }, ["Send"]);
-    form.appendChild(input); form.appendChild(send);
-    chatContainer.appendChild(header);
-    chatContainer.appendChild(messages);
-    chatContainer.appendChild(form);
-    document.body.appendChild(chatContainer);
-    console.log("app.rag.js: created floating chat panel.");
+    // ensure #chatMessages and #chatForm exist inside
+    const messages = chatContainer.querySelector("#chatMessages");
+    const form = chatContainer.querySelector("#chatForm");
+    if (!messages || !form) {
+      console.error("Chatbot markup incomplete in index.html");
+    }
   })();
+
 
   // chat-message utilities
   function addChatMessage(role, text) {
