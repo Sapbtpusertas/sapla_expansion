@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAP Assessment Platform - Professional Framework</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+    <div class="top-header-wrapper">
+        <div class="main-title-container">
+            <img src="assets/accenture-logo.png" alt="Accenture Logo" class="main-title-logo">
+            <div class="main-title-text">
+                <h1>SAP Assessment Platform</h1>
+                <p>Professional Framework</p>
+            </div>
+        </div>
+
+        <header class="header-sticky">
+            <div class="header-container">
+                <nav class="header-nav" id="header-nav">
+                    <button class="nav-btn active" data-section="customers">
+                        <span data-lucide="users"></span>
+                        Customers
+                    </button>
+                    <button class="nav-btn" data-section="data-collection">
+                        <span data-lucide="database"></span>
+                        Data Collection
+                    </button>
+                    <button class="nav-btn" data-section="datasets">
+                        <span data-lucide="folder-open"></span>
+                        Datasets
+                    </button>
+                    <button class="nav-btn" data-section="analysis">
+                        <span data-lucide="brain"></span>
+                        Analysis
+                    </button>
+                    <button class="nav-btn" data-section="reports">
+                        <span data-lucide="file-text"></span>
+                        Reports
+                    </button>
+                    <button class="nav-btn" data-section="dashboard">
+                        <span data-lucide="bar-chart-3"></span>
+                        Dashboard
+                    </button>
+                </nav>
+
+                <button class="mobile-menu-btn" id="mobile-menu-btn">
+                    <span data-lucide="menu"></span>
+                </button>
+                
+                <div class="header-actions">
+                    <button class="theme-toggle" id="theme-toggle">
+                        <span data-lucide="sun" class="theme-icon light-icon"></span>
+                        <span data-lucide="moon" class="theme-icon dark-icon"></span>
+                    </button>
+                    
+                    <div class="tenant-selector">
+                        <button class="tenant-button" id="tenant-button">
+                            <div class="tenant-info">
+                                <span class="tenant-name" id="current-tenant-name">Select Customer</span>
+                                <span class="tenant-tier" id="current-tenant-tier">No customer selected</span>
+                            </div>
+                            <span data-lucide="chevron-down" class="dropdown-icon"></span>
+                        </button>
+                        
+                        <div class="tenant-dropdown hidden" id="tenant-dropdown">
+                            <div class="dropdown-header">
+                                <input type="text" class="tenant-search form-control" placeholder="Search customers..." id="tenant-search">
+                            </div>
+                            <div class="dropdown-content" id="tenant-list">
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            </header>
+    </div>
+
+    <main class="main-content">
+        <section class="content-section active" id="customers-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Customer Management</h1>
+                    <p class="section-description">Manage your SAP assessment customers and track progress</p>
+                    <div class="header-actions-group">
+                        <button class="btn btn--secondary" id="import-customers-btn">
+                            <span data-lucide="upload"></span>
+                            Import Customers
+                        </button>
+                        <button class="btn btn--primary" id="add-customer-btn">
+                            <span data-lucide="plus"></span>
+                            Add New Customer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="workflow-section">
+                    <h2>Assessment Workflow</h2>
+                    <div class="workflow-tiles" id="workflow-tiles">
+                        <div class="workflow-tile active" data-workflow="create-customer">
+                            <div class="workflow-number">1</div>
+                            <div class="workflow-content">
+                                <h3>Create/Select Customer</h3>
+                                <p>Set up customer profile and SAP systems</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="check-circle"></span>
+                            </div>
+                        </div>
+                        <div class="workflow-tile" data-workflow="data-collection">
+                            <div class="workflow-number">2</div>
+                            <div class="workflow-content">
+                                <h3>Data Collection</h3>
+                                <p>Gather assessment data from SAP systems</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="circle"></span>
+                            </div>
+                        </div>
+                        <div class="workflow-tile" data-workflow="review-datasets">
+                            <div class="workflow-number">3</div>
+                            <div class="workflow-content">
+                                <h3>Review Datasets</h3>
+                                <p>Validate and organize collected data</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="circle"></span>
+                            </div>
+                        </div>
+                        <div class="workflow-tile" data-workflow="ai-analysis">
+                            <div class="workflow-number">4</div>
+                            <div class="workflow-content">
+                                <h3>AI Analysis</h3>
+                                <p>Run comprehensive assessment analysis</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="circle"></span>
+                            </div>
+                        </div>
+                        <div class="workflow-tile" data-workflow="generate-reports">
+                            <div class="workflow-number">5</div>
+                            <div class="workflow-content">
+                                <h3>Generate Reports</h3>
+                                <p>Create detailed assessment reports</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="circle"></span>
+                            </div>
+                        </div>
+                        <div class="workflow-tile" data-workflow="review-dashboard">
+                            <div class="workflow-number">6</div>
+                            <div class="workflow-content">
+                                <h3>Review Dashboard</h3>
+                                <p>View executive summary and insights</p>
+                            </div>
+                            <div class="workflow-status">
+                                <span data-lucide="circle"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="customers-list">
+                    <h2>Customer Environments</h2>
+                    <div class="customers-grid" id="customers-grid">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-section" id="data-collection-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Data Collection Framework</h1>
+                    <p class="section-description">Comprehensive data collection across 127+ assessment points in 6 categories</p>
+                    <div class="header-actions-group">
+                        <button class="btn btn--primary" id="upload-assessment-files">
+                            <span data-lucide="upload"></span>
+                            Upload Assessment Files
+                        </button>
+                        <button class="btn btn--secondary" id="configure-agentless">
+                            <span data-lucide="link"></span>
+                            Configure Agentless Collection
+                        </button>
+                        <button class="btn btn--outline" id="generate-test-data">
+                            <span data-lucide="zap"></span>
+                            Generate Test Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="requirement-notice" id="collection-customer-notice">
+                    <div class="notice-content">
+                        <span data-lucide="info"></span>
+                        <div>
+                            <h4>Customer Selection Required</h4>
+                            <p>Please select a customer from the dropdown above to begin data collection.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="collection-content" id="collection-content" style="display: none;">
+                    <div class="collection-framework-card">
+                        <h3>Assessment Framework</h3>
+                        <div class="category-collection-grid" id="category-collection-grid">
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-section" id="datasets-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Datasets Overview</h1>
+                    <div class="header-actions-group">
+                        <button class="btn btn--primary" id="export-all-btn">
+                            <span data-lucide="download"></span>
+                            Export All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dataset-summary" id="dataset-summary">
+                    <div class="summary-card">
+                        <div class="summary-value">127</div>
+                        <div class="summary-label">Assessment Points</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">152</div>
+                        <div class="summary-label">Collected Points</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">120%</div>
+                        <div class="summary-label">Coverage</div>
+                    </div>
+                </div>
+
+                <div class="dataset-categories" id="dataset-categories">
+                    </div>
+            </div>
+        </section>
+
+        <section class="content-section" id="analysis-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Analysis</h1>
+                    <p class="section-description">Comprehensive assessment with formula evaluation and AI insights using Gemini AI</p>
+                    <div class="header-actions-group">
+                        <button class="btn btn--primary" id="run-ai-analysis">
+                            <span data-lucide="brain"></span>
+                            Run AI Analysis
+                        </button>
+                        <button class="btn btn--secondary" id="quick-assessment">
+                            <span data-lucide="zap"></span>
+                            Quick Assessment
+                        </button>
+                    </div>
+                </div>
+
+                <div class="engine-status" id="engine-status">
+                    <div class="status-card">
+                        <div class="status-icon">
+                            <span data-lucide="check-circle"></span>
+                        </div>
+                        <div class="status-content">
+                            <div class="status-value">127</div>
+                            <div class="status-label">Assessment Points</div>
+                        </div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-icon">
+                            <span data-lucide="brain"></span>
+                        </div>
+                        <div class="status-content">
+                            <div class="status-value">3</div>
+                            <div class="status-label">AI Models Ready</div>
+                        </div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-icon">
+                            <span data-lucide="database"></span>
+                        </div>
+                        <div class="status-content">
+                            <div class="status-value">6</div>
+                            <div class="status-label">Data Sources</div>
+                        </div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-icon">
+                            <span data-lucide="play-circle"></span>
+                        </div>
+                        <div class="status-content">
+                            <div class="status-value">Ready</div>
+                            <div class="status-label">Analysis Status</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analysis-results" id="analysis-results" style="display: none;">
+                    <h3>Analysis Results for Selected Customer</h3>
+                    
+                    <div class="results-summary">
+                        <div class="result-metric">
+                            <div class="metric-large">
+                                <div class="metric-value" id="overall-analysis-score">76</div>
+                                <div class="metric-unit">%</div>
+                            </div>
+                            <div class="metric-label">Overall Score</div>
+                        </div>
+                        <div class="result-metric">
+                            <div class="metric-badge medium">Medium</div>
+                            <div class="metric-label">Risk Level</div>
+                        </div>
+                        <div class="result-metric">
+                            <div class="metric-value critical">3</div>
+                            <div class="metric-label">Critical Findings</div>
+                        </div>
+                    </div>
+
+                    <div class="category-breakdown" id="category-breakdown">
+                        </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="content-section" id="reports-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Professional Reports</h1>
+                    <p class="section-description">AI-powered reports with comprehensive insights and recommendations</p>
+                </div>
+                
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <div class="report-header">
+                            <span data-lucide="file-text" class="report-icon"></span>
+                            <h3>Executive Summary</h3>
+                        </div>
+                        <p>Comprehensive executive overview with strategic recommendations and key insights for leadership.</p>
+                        <div class="report-actions">
+                            <button class="btn btn--primary generate-report-btn" data-report="executive">
+                                <span data-lucide="sparkles"></span>
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <div class="report-header">
+                            <span data-lucide="shield-check" class="report-icon"></span>
+                            <h3>Security Assessment</h3>
+                        </div>
+                        <p>Deep dive into security posture with risk assessment, vulnerabilities, and remediation plans.</p>
+                        <div class="report-actions">
+                            <button class="btn btn--primary generate-report-btn" data-report="security">
+                                <span data-lucide="sparkles"></span>
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="report-card">
+                        <div class="report-header">
+                            <span data-lucide="trending-up" class="report-icon"></span>
+                            <h3>Performance Analysis</h3>
+                        </div>
+                        <p>Detailed performance metrics, bottleneck analysis, and optimization recommendations.</p>
+                        <div class="report-actions">
+                            <button class="btn btn--primary generate-report-btn" data-report="performance">
+                                <span data-lucide="sparkles"></span>
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="report-card">
+                        <div class="report-header">
+                            <span data-lucide="database" class="report-icon"></span>
+                            <h3>Data Governance</h3>
+                        </div>
+                        <p>Data quality assessment, governance framework evaluation, and compliance insights.</p>
+                        <div class="report-actions">
+                            <button class="btn btn--primary generate-report-btn" data-report="governance">
+                                <span data-lucide="sparkles"></span>
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-section" id="dashboard-section">
+            <div class="page-container">
+                <div class="section-header">
+                    <h1>Executive Dashboard</h1>
+                    <p class="section-description">Comprehensive health overview with drill-down capabilities and real-time metrics</p>
+                </div>
+
+                <div class="requirement-notice" id="dashboard-customer-notice">
+                    <div class="notice-content">
+                        <span data-lucide="info"></span>
+                        <div>
+                            <h4>Customer Selection Required</h4>
+                            <p>Please select a customer to view dashboard metrics and insights.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content" id="dashboard-content" style="display: none;">
+                    <div class="dashboard-metrics-row">
+                        <div class="overall-health-metric">
+                            <div class="health-score-large">
+                                <div class="score-circle-xl" id="overall-score-circle">
+                                    <span class="score-value-xl" id="overall-score">76</span>
+                                    <span class="score-unit">%</span>
+                                </div>
+                                <div class="score-label-xl">Overall Health Score</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metrics-grid">
+                            <div class="metric-card clickable" data-drill="systems">
+                                <div class="metric-icon">
+                                    <span data-lucide="server"></span>
+                                </div>
+                                <div class="metric-content">
+                                    <div class="metric-value" id="systems-count">4</div>
+                                    <div class="metric-label">Systems Monitored</div>
+                                </div>
+                                <div class="metric-arrow">
+                                    <span data-lucide="chevron-right"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card clickable" data-drill="assessment-points">
+                                <div class="metric-icon">
+                                    <span data-lucide="check-circle"></span>
+                                </div>
+                                <div class="metric-content">
+                                    <div class="metric-value" id="assessment-points-count">127</div>
+                                    <div class="metric-label">Assessment Points</div>
+                                </div>
+                                <div class="metric-arrow">
+                                    <span data-lucide="chevron-right"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card clickable critical" data-drill="critical-findings">
+                                <div class="metric-icon">
+                                    <span data-lucide="alert-triangle"></span>
+                                </div>
+                                <div class="metric-content">
+                                    <div class="metric-value critical" id="critical-findings-count">3</div>
+                                    <div class="metric-label">Critical Findings</div>
+                                </div>
+                                <div class="metric-arrow">
+                                    <span data-lucide="chevron-right"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card clickable" data-drill="data-sources">
+                                <div class="metric-icon">
+                                    <span data-lucide="database"></span>
+                                </div>
+                                <div class="metric-content">
+                                    <div class="metric-value" id="data-sources-count">6</div>
+                                    <div class="metric-label">Data Sources</div>
+                                </div>
+                                <div class="metric-arrow">
+                                    <span data-lucide="chevron-right"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="category-tiles-grid" id="category-tiles-grid">
+                        </div>
+
+                    <div class="dashboard-charts-row">
+                        <div class="chart-container-wrapper">
+                            <div class="chart-header">
+                                <h3>Assessment Score Trends</h3>
+                                <button class="btn btn--sm btn--outline" id="refresh-trends">
+                                    <span data-lucide="refresh-cw"></span>
+                                    Refresh
+                                </button>
+                            </div>
+                            <div class="chart-container" style="position: relative; height: 350px;">
+                                <canvas id="trendsChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container-wrapper">
+                            <div class="chart-header">
+                                <h3>Category Performance</h3>
+                                <button class="btn btn--sm btn--outline" id="compare-industry">
+                                    <span data-lucide="bar-chart-4"></span>
+                                    Compare
+                                </button>
+                            </div>
+                            <div class="chart-container" style="position: relative; height: 350px;">
+                                <canvas id="performanceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="modal-overlay hidden" id="help-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Help & Documentation</h3>
+                <button class="modal-close">
+                    <span data-lucide="x"></span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="help-content">
+                    <h4>Getting Started</h4>
+                    <p>This SAP Assessment Platform helps you evaluate and monitor your SAP landscape comprehensively.</p>
+                    
+                    <h4>Key Features</h4>
+                    <ul>
+                        <li>Customer management and workflow tracking</li>
+                        <li>Automated data collection across 127+ assessment points</li>
+                        <li>AI-powered analysis with Gemini AI</li>
+                        <li>Executive dashboards with drill-down capabilities</li>
+                        <li>Professional report generation</li>
+                    </ul>
+                    
+                    <h4>Support</h4>
+                    <p>For technical support, please contact your system administrator.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chatbot-float" id="chatbot-float">
+        <button class="chatbot-btn" id="chatbot-btn">
+            <span data-lucide="message-circle"></span>
+        </button>
+        <div class="chatbot-panel hidden" id="chatbot-panel">
+            <div class="chatbot-header">
+                <h4>SAP Assessment Assistant</h4>
+                <button class="chatbot-close" id="chatbot-close">
+                    <span data-lucide="x"></span>
+                </button>
+            </div>
+            <div class="chatbot-messages" id="chatbot-messages">
+                <div class="chat-message bot">
+                    <div class="message-content">
+                        Hello! I'm your SAP Assessment Assistant. How can I help you today?
+                    </div>
+                </div>
+            </div>
+            <div class="chatbot-input">
+                <input type="text" placeholder="Type your question..." id="chat-input">
+                <button id="chat-send">
+                    <span data-lucide="send"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
