@@ -73,71 +73,65 @@
   // -------------------------
   // Chat UI: ensure elements exist (non-destructive)
   // -------------------------
-  // If the page already has a chat area, prefer it. Otherwise create one and append to body.
-  // -------------------------
-  // Chat UI: ensure elements exist (non-destructive)
-  // -------------------------
   (function ensureChatUI() {
     let attempts = 0;
-    const maxAttempts = 50; // ~5s
-    const interval = 100;
+    const maxAttempts = 50; // ~5 seconds total
+    const interval = 100;   // 100ms between tries
 
     function tryWire() {
       attempts++;
-      const btn = document.getElementById("chatbot-btn");
-      const panel = document.getElementById("chatbot-panel");
-      const closeBtn = document.getElementById("chatbot-close");
-      const messages = document.getElementById("chatbot-messages");
-      const input = document.getElementById("chat-input");
-      const sendBtn = document.getElementById("chat-send");
+      const btn       = document.getElementById("chatbot-btn");
+      const wrapper   = document.getElementById("chatbot-float");
+      const panel     = document.getElementById("chatbot-panel");
+      const closeBtn  = document.getElementById("chatbot-close");
+      const messages  = document.getElementById("chatbot-messages");
+      const input     = document.getElementById("chat-input");
+      const sendBtn   = document.getElementById("chat-send");
 
-      if (!btn || !panel || !closeBtn || !messages || !input || !sendBtn) {
-        if (attempts < maxAttempts) return setTimeout(tryWire, interval);
-        console.warn("Chatbot elements not found in DOM after waiting");
+      if (!btn || !wrapper || !panel || !closeBtn || !messages || !input || !sendBtn) {
+        if (attempts < maxAttempts) {
+          return setTimeout(tryWire, interval);
+        }
+        console.warn("Chatbot UI elements not found after waiting");
         return;
       }
 
       // === Make chatbot draggable ===
       let isDragging = false;
-      let offsetX, offsetY;
-      const floatWrapper = panel; // Use panel itself as draggable wrapper
-
+      let offsetX = 0, offsetY = 0;
       const header = panel.querySelector(".chatbot-header");
       if (header) {
         header.style.cursor = "move";
         header.addEventListener("mousedown", (e) => {
           isDragging = true;
-          offsetX = e.clientX - floatWrapper.offsetLeft;
-          offsetY = e.clientY - floatWrapper.offsetTop;
-          panel.classList.add("dragging");
+          offsetX = e.clientX - wrapper.offsetLeft;
+          offsetY = e.clientY - wrapper.offsetTop;
+          wrapper.classList.add("dragging");
         });
-
         document.addEventListener("mousemove", (e) => {
           if (isDragging) {
-            floatWrapper.style.left = e.clientX - offsetX + "px";
-            floatWrapper.style.top = e.clientY - offsetY + "px";
-            floatWrapper.style.right = "auto";
-            floatWrapper.style.bottom = "auto";
-            floatWrapper.style.position = "fixed";
+            wrapper.style.left = e.clientX - offsetX + "px";
+            wrapper.style.top = e.clientY - offsetY + "px";
+            wrapper.style.position = "fixed";
           }
         });
-
         document.addEventListener("mouseup", () => {
           isDragging = false;
-          panel.classList.remove("dragging");
+          wrapper.classList.remove("dragging");
         });
       }
 
-      // Toggle open/close
+      // === Toggle open/close ===
       btn.addEventListener("click", () => {
-        console.log("Chat button clicked - toggling panel");
-        panel.classList.toggle("hidden");
+        console.log("Chat button clicked - toggling chat wrapper");
+        wrapper.classList.toggle("hidden");
+        panel.classList.remove("hidden");
       });
       closeBtn.addEventListener("click", () => {
-        panel.classList.add("hidden");
+        wrapper.classList.add("hidden");
       });
 
-      // Message helpers
+      // === Message helpers ===
       function addMessage(role, text) {
         const msg = document.createElement("div");
         msg.className = `chat-message ${role}`;
@@ -146,10 +140,9 @@
         messages.scrollTop = messages.scrollHeight;
         return msg;
       }
-
       function updateMessage(msg, text) {
-        const content = msg.querySelector(".message-content");
-        if (content) content.innerText = text;
+        const c = msg.querySelector(".message-content");
+        if (c) c.innerText = text;
       }
 
       async function handleSend() {
@@ -165,15 +158,14 @@
           const result = await askChatbot(query);
           updateMessage(botMsg, result.answer || "No answer");
 
-          // Drilldowns if available
-          if (result.sources) {
+          if (Array.isArray(result.sources)) {
             result.sources.forEach(src => {
-              if (src.command_query && src.command_query.startsWith("dashboard://")) {
-                const drill = document.createElement("button");
-                drill.className = "drilldown-btn";
-                drill.innerText = `🔎 Drilldown: ${src.checkname}`;
-                drill.addEventListener("click", () => openDrilldown(src.command_query));
-                messages.appendChild(drill);
+              if (src.command_query?.startsWith("dashboard://")) {
+                const dbtn = document.createElement("button");
+                dbtn.className = "drilldown-btn";
+                dbtn.innerText = `🔎 Drilldown: ${src.checkname}`;
+                dbtn.addEventListener("click", () => openDrilldown(src.command_query));
+                messages.appendChild(dbtn);
               }
             });
           }
@@ -182,10 +174,7 @@
         }
       }
 
-      // Send on button click
       sendBtn.addEventListener("click", handleSend);
-
-      // Send on Enter key
       input.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -196,7 +185,6 @@
       console.log("Chatbot UI successfully wired!");
     }
 
-    // Start trying to wire immediately or wait for DOM
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", tryWire);
     } else {
