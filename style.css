@@ -2620,3 +2620,15 @@ body {
   background: #e1bee7;
 }
 
+
+/* Resizable & Draggable */
+.chatbot-panel {
+  resize: both;              /* native resize bottom-right */
+  overflow: auto;            /* ensure scrollbars if resized */
+  cursor: grab;              /* show grab cursor */
+}
+.chatbot-panel.dragging {
+  cursor: grabbing;
+  opacity: 0.9;              /* slight transparency while dragging */
+  transition: none;
+}

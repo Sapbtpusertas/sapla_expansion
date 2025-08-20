@@ -75,66 +75,85 @@
   // -------------------------
   (function ensureChatUI() {
     let attempts = 0;
-    const maxAttempts = 50; // ~5 seconds
-    const interval = 100;   // 100ms per try
+    const maxAttempts = 50;  // ~5s
+    const interval = 100;
 
     function tryWire() {
       attempts++;
-      const btn      = document.getElementById("chatbot-btn");
+
+      // Elements
       const wrapper  = document.getElementById("chatbot-float");
       const panel    = document.getElementById("chatbot-panel");
+      const btn      = document.getElementById("chatbot-btn");
       const closeBtn = document.getElementById("chatbot-close");
       const messages = document.getElementById("chatbot-messages");
       const input    = document.getElementById("chat-input");
       const sendBtn  = document.getElementById("chat-send");
 
-      // Retry if elements not yet in DOM
-      if (!btn || !wrapper || !panel || !closeBtn || !messages || !input || !sendBtn) {
-        if (attempts < maxAttempts) {
-          return setTimeout(tryWire, interval);
-        }
+      // Wait until DOM has them (in case your SPA renders later)
+      if (!wrapper || !panel || !btn || !closeBtn || !messages || !input || !sendBtn) {
+        if (attempts < maxAttempts) return setTimeout(tryWire, interval);
         console.warn("Chatbot UI elements not found after waiting");
         return;
       }
 
-      // === Make chatbot draggable ===
-      let isDragging = false;
-      let offsetX = 0, offsetY = 0;
+      // Prevent icon (SVG) from stealing clicks from the button
+      try {
+        wrapper.querySelectorAll("svg,[data-lucide]").forEach(el => {
+          el.style.pointerEvents = "none";
+        });
+      } catch (_) {}
+
+      // Make panel draggable by its header
       const header = panel.querySelector(".chatbot-header");
       if (header) {
+        let isDragging = false;
+        let offsetX = 0, offsetY = 0;
         header.style.cursor = "move";
+
         header.addEventListener("mousedown", (e) => {
           isDragging = true;
           offsetX = e.clientX - wrapper.offsetLeft;
           offsetY = e.clientY - wrapper.offsetTop;
           wrapper.classList.add("dragging");
         });
+
         document.addEventListener("mousemove", (e) => {
-          if (isDragging) {
-            wrapper.style.left = e.clientX - offsetX + "px";
-            wrapper.style.top = e.clientY - offsetY + "px";
-            wrapper.style.position = "fixed";
-          }
+          if (!isDragging) return;
+          wrapper.style.left = e.clientX - offsetX + "px";
+          wrapper.style.top  = e.clientY - offsetY + "px";
+          wrapper.style.position = "fixed";
+          wrapper.style.right = "auto";
+          wrapper.style.bottom = "auto";
         });
+
         document.addEventListener("mouseup", () => {
           isDragging = false;
           wrapper.classList.remove("dragging");
         });
       }
 
-      // === Toggle open/close ===
-      btn.addEventListener("click", () => {
-        console.log("Chat button clicked - toggling chat wrapper");
-        // Toggle visibility of the entire float container
+      // Keep clicks inside panel from bubbling to global document handler
+      panel.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+
+      // Toggle open/close (stop propagation so global click-outside doesn't fire)
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Show/hide the entire floating wrapper; panel itself should be visible
         wrapper.classList.toggle("hidden");
-        // Ensure inner panel is visible when opened
         panel.classList.remove("hidden");
       });
-      closeBtn.addEventListener("click", () => {
+
+      closeBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         wrapper.classList.add("hidden");
       });
 
-      // === Message helpers ===
+      // Messaging helpers
       function addMessage(role, text) {
         const msg = document.createElement("div");
         msg.className = `chat-message ${role}`;
@@ -143,44 +162,59 @@
         messages.scrollTop = messages.scrollHeight;
         return msg;
       }
+
       function updateMessage(msg, text) {
         const c = msg.querySelector(".message-content");
         if (c) c.innerText = text;
       }
 
       async function handleSend() {
-        const query = input.value.trim();
-        if (!query) return;
+        const q = (input.value || "").trim();
+        if (!q) return;
 
-        addMessage("user", query);
+        addMessage("user", q);
         input.value = "";
-
         const botMsg = addMessage("bot", "Thinking...");
 
         try {
-          const result = await askChatbot(query);
-          updateMessage(botMsg, result.answer || "No answer");
+          // Uses your existing helper exposed on window or local askChatbot
+          const res = (window.SAP_RAG?.askChatbot)
+            ? await window.SAP_RAG.askChatbot(q)
+            : await askChatbot(q);
 
-          if (Array.isArray(result.sources)) {
-            result.sources.forEach(src => {
-              if (src.command_query?.startsWith("dashboard://")) {
-                const dbtn = document.createElement("button");
-                dbtn.className = "drilldown-btn";
-                dbtn.innerText = `🔎 Drilldown: ${src.checkname}`;
-                dbtn.addEventListener("click", () => openDrilldown(src.command_query));
-                messages.appendChild(dbtn);
-              }
-            });
-          }
+          updateMessage(botMsg, res?.answer || "No answer");
+
+          // Optional drilldowns
+          (res?.sources || []).forEach(src => {
+            if (typeof src.command_query === "string" && src.command_query.startsWith("dashboard://")) {
+              const b = document.createElement("button");
+              b.className = "drilldown-btn";
+              b.innerText = `🔎 Drilldown: ${src.checkname}`;
+              b.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                (window.SAP_RAG?.openDrilldown
+                  ? window.SAP_RAG.openDrilldown
+                  : openDrilldown)(src.command_query);
+              });
+              messages.appendChild(b);
+            }
+          });
         } catch (err) {
-          updateMessage(botMsg, "Error: " + err.message);
+          updateMessage(botMsg, "Error: " + (err?.message || err));
+          console.error("Chat error:", err);
         }
       }
 
-      sendBtn.addEventListener("click", handleSend);
+      sendBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSend();
+      });
+
       input.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
+          e.stopPropagation();
           handleSend();
         }
       });
@@ -188,7 +222,6 @@
       console.log("Chatbot UI successfully wired!");
     }
 
-    // Start wiring after DOM ready
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", tryWire);
     } else {
