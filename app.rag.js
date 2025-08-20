@@ -75,19 +75,20 @@
   // -------------------------
   (function ensureChatUI() {
     let attempts = 0;
-    const maxAttempts = 50; // ~5 seconds total
-    const interval = 100;   // 100ms between tries
+    const maxAttempts = 50; // ~5 seconds
+    const interval = 100;   // 100ms per try
 
     function tryWire() {
       attempts++;
-      const btn       = document.getElementById("chatbot-btn");
-      const wrapper   = document.getElementById("chatbot-float");
-      const panel     = document.getElementById("chatbot-panel");
-      const closeBtn  = document.getElementById("chatbot-close");
-      const messages  = document.getElementById("chatbot-messages");
-      const input     = document.getElementById("chat-input");
-      const sendBtn   = document.getElementById("chat-send");
+      const btn      = document.getElementById("chatbot-btn");
+      const wrapper  = document.getElementById("chatbot-float");
+      const panel    = document.getElementById("chatbot-panel");
+      const closeBtn = document.getElementById("chatbot-close");
+      const messages = document.getElementById("chatbot-messages");
+      const input    = document.getElementById("chat-input");
+      const sendBtn  = document.getElementById("chat-send");
 
+      // Retry if elements not yet in DOM
       if (!btn || !wrapper || !panel || !closeBtn || !messages || !input || !sendBtn) {
         if (attempts < maxAttempts) {
           return setTimeout(tryWire, interval);
@@ -124,7 +125,9 @@
       // === Toggle open/close ===
       btn.addEventListener("click", () => {
         console.log("Chat button clicked - toggling chat wrapper");
+        // Toggle visibility of the entire float container
         wrapper.classList.toggle("hidden");
+        // Ensure inner panel is visible when opened
         panel.classList.remove("hidden");
       });
       closeBtn.addEventListener("click", () => {
@@ -185,12 +188,14 @@
       console.log("Chatbot UI successfully wired!");
     }
 
+    // Start wiring after DOM ready
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", tryWire);
     } else {
       tryWire();
     }
   })();
+
 
 
 
