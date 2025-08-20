@@ -2112,6 +2112,7 @@ body {
 .chatbot-header h4 {
   margin: 0;
   font-size: var(--font-size-md);
+  color: white;
 }
 
 .chatbot-close {
@@ -2127,11 +2128,7 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.chatbot-messages {
-  height: 300px;
-  overflow-y: auto;
-  padding: var(--space-16);
-}
+
 
 .chat-message {
   margin-bottom: var(--space-12);
