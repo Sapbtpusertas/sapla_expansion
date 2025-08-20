@@ -2481,24 +2481,7 @@ body {
   font-family: sans-serif;
 }
 
-/* Chatbot Button */
-.chatbot-btn {
-  background: #6a1b9a; /* Purple accent */
-  border: none;
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.chatbot-btn:hover {
-  background: #8e24aa;
-}
+
 
 /* Chatbot Panel */
 .chatbot-panel {

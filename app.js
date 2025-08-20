@@ -481,13 +481,10 @@ class SAPAssessmentPlatform {
     const chatbotWrapper = document.getElementById('chatbot-float');
     const chatbotPanel = document.getElementById('chatbot-panel');
     const chatbotBtn = document.getElementById('chatbot-btn');
-if (chatbotWrapper && !chatbotWrapper.classList.contains('hidden')) {
-const clickedInsideChat =
-chatbotWrapper.contains(e.target) || chatbotBtn?.contains(e.target);
-if (!clickedInsideChat) {
-this.closeChatbot();
-}
-}
+    if (chatbotPanel && !chatbotPanel.classList.contains('hidden') &&
+        !chatbotPanel.contains(e.target) && !chatbotBtn?.contains(e.target)) {
+      this.closeChatbot();
+    }
   }
 
   setupKeyboardHandlers() {
