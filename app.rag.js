@@ -138,20 +138,28 @@
         e.stopPropagation();
       });
 
-      // Toggle open/close (stop propagation so global click-outside doesn't fire)
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Show/hide the entire floating wrapper; panel itself should be visible
-        wrapper.classList.toggle("hidden");
-        panel.classList.remove("hidden");
-      });
+    // Toggle only the panel, keep the floating button always visible
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      panel.classList.toggle("hidden");
+    });
 
-      closeBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        wrapper.classList.add("hidden");
-      });
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      panel.classList.add("hidden");
+    });
+
+    // Close when clicking outside the panel
+    document.addEventListener("click", (e) => {
+      if (!panel.classList.contains("hidden")) {
+        if (!panel.contains(e.target) && !btn.contains(e.target)) {
+          panel.classList.add("hidden");
+        }
+      }
+    });
+
 
       // Messaging helpers
       function addMessage(role, text) {
