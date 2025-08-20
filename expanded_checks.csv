@@ -87,7 +87,7 @@ SECURITY COMPLIANCE,Encryption & Keys,Key Rotation & Storage Controls,kms,"Verif
 OBSERVABILITY,Monitoring & Logging,Prometheus Exporters Present (hanadb_exporter),monitoring,Check if hanadb_exporter or equivalent is installed and scraping HANA metrics,exporter_present,1,Fully Automated,High,Medium,Monitoring access,Enable SAN metrics ingestion
 OBSERVABILITY,Monitoring & Logging,Log Retention Policy & Storage,logging,Check retention settings in central logging (days retained),retention_days,1,Fully Automated,Medium,Low,Log index access,Regulatory & cost implications
 OBSERVABILITY,Monitoring & Logging,Alert Noise Analysis - false positives rate,monitoring/alerts,Analyze alert history to compute false-positive ratio,false_positive_pct,1,Semi-Automated,Medium,Medium,Alert history,Improve SRE processes
-BPMON,Process Monitoring,End-to-end Process Coverage List,bpm/monitoring,Extract list of monitored business processes and gaps,process_coverage_pct,1,Semi-Automated,Medium,Medium,BPM tool access,Map business-critical flows
+OBSERVABILITY,Process Monitoring,End-to-end Process Coverage List,bpm/monitoring,Extract list of monitored business processes and gaps,process_coverage_pct,1,Semi-Automated,Medium,Medium,BPM tool access,Map business-critical flows
 DATA GOVERNANCE & ANALYTICS,Data Quality Management,Data Quality Profiling,data_profiling_tools / db_sql / sap_information_steward,"SAP InfoSteward API: POST /api/profiles/run {target: <schema.table>} OR
 SQL example (run per table/column):
 hdbsql ""SELECT COUNT(*) AS total, SUM(CASE WHEN {col} IS NULL THEN 1 ELSE 0 END) AS nulls, COUNT(DISTINCT {col}) AS distinct_vals FROM {schema}.{table};""
