@@ -74,115 +74,136 @@
   // Chat UI: ensure elements exist (non-destructive)
   // -------------------------
   // If the page already has a chat area, prefer it. Otherwise create one and append to body.
+  // -------------------------
+  // Chat UI: ensure elements exist (non-destructive)
+  // -------------------------
   (function ensureChatUI() {
-    const btn = document.getElementById("chatbot-btn");
-    const panel = document.getElementById("chatbot-panel");
-    const closeBtn = document.getElementById("chatbot-close");
-    const messages = document.getElementById("chatbot-messages");
-    const input = document.getElementById("chat-input");
-    const sendBtn = document.getElementById("chat-send");
+    let attempts = 0;
+    const maxAttempts = 50; // ~5s
+    const interval = 100;
 
-    if (!btn || !panel || !closeBtn || !messages || !input || !sendBtn) {
-      console.warn("Chatbot elements not found in DOM");
-      return;
-    }
+    function tryWire() {
+      attempts++;
+      const btn = document.getElementById("chatbot-btn");
+      const panel = document.getElementById("chatbot-panel");
+      const closeBtn = document.getElementById("chatbot-close");
+      const messages = document.getElementById("chatbot-messages");
+      const input = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("chat-send");
+
+      if (!btn || !panel || !closeBtn || !messages || !input || !sendBtn) {
+        if (attempts < maxAttempts) return setTimeout(tryWire, interval);
+        console.warn("Chatbot elements not found in DOM after waiting");
+        return;
+      }
 
       // === Make chatbot draggable ===
-    let isDragging = false;
-    let offsetX, offsetY;
+      let isDragging = false;
+      let offsetX, offsetY;
+      const floatWrapper = panel; // Use panel itself as draggable wrapper
 
-    const floatWrapper = panel;
-
-    if (floatWrapper) {
-      // Start drag on header
       const header = panel.querySelector(".chatbot-header");
-      header.style.cursor = "move";
+      if (header) {
+        header.style.cursor = "move";
+        header.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          offsetX = e.clientX - floatWrapper.offsetLeft;
+          offsetY = e.clientY - floatWrapper.offsetTop;
+          panel.classList.add("dragging");
+        });
 
-      header.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        offsetX = e.clientX - floatWrapper.offsetLeft;
-        offsetY = e.clientY - floatWrapper.offsetTop;
-        panel.classList.add("dragging");
+        document.addEventListener("mousemove", (e) => {
+          if (isDragging) {
+            floatWrapper.style.left = e.clientX - offsetX + "px";
+            floatWrapper.style.top = e.clientY - offsetY + "px";
+            floatWrapper.style.right = "auto";
+            floatWrapper.style.bottom = "auto";
+            floatWrapper.style.position = "fixed";
+          }
+        });
+
+        document.addEventListener("mouseup", () => {
+          isDragging = false;
+          panel.classList.remove("dragging");
+        });
+      }
+
+      // Toggle open/close
+      btn.addEventListener("click", () => {
+        console.log("Chat button clicked - toggling panel");
+        panel.classList.toggle("hidden");
+      });
+      closeBtn.addEventListener("click", () => {
+        panel.classList.add("hidden");
       });
 
-      document.addEventListener("mousemove", (e) => {
-        if (isDragging) {
-          floatWrapper.style.left = e.clientX - offsetX + "px";
-          floatWrapper.style.top = e.clientY - offsetY + "px";
-          floatWrapper.style.position = "fixed";
+      // Message helpers
+      function addMessage(role, text) {
+        const msg = document.createElement("div");
+        msg.className = `chat-message ${role}`;
+        msg.innerHTML = `<div class="message-content">${text}</div>`;
+        messages.appendChild(msg);
+        messages.scrollTop = messages.scrollHeight;
+        return msg;
+      }
+
+      function updateMessage(msg, text) {
+        const content = msg.querySelector(".message-content");
+        if (content) content.innerText = text;
+      }
+
+      async function handleSend() {
+        const query = input.value.trim();
+        if (!query) return;
+
+        addMessage("user", query);
+        input.value = "";
+
+        const botMsg = addMessage("bot", "Thinking...");
+
+        try {
+          const result = await askChatbot(query);
+          updateMessage(botMsg, result.answer || "No answer");
+
+          // Drilldowns if available
+          if (result.sources) {
+            result.sources.forEach(src => {
+              if (src.command_query && src.command_query.startsWith("dashboard://")) {
+                const drill = document.createElement("button");
+                drill.className = "drilldown-btn";
+                drill.innerText = `🔎 Drilldown: ${src.checkname}`;
+                drill.addEventListener("click", () => openDrilldown(src.command_query));
+                messages.appendChild(drill);
+              }
+            });
+          }
+        } catch (err) {
+          updateMessage(botMsg, "Error: " + err.message);
+        }
+      }
+
+      // Send on button click
+      sendBtn.addEventListener("click", handleSend);
+
+      // Send on Enter key
+      input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleSend();
         }
       });
 
-      document.addEventListener("mouseup", () => {
-        isDragging = false;
-        panel.classList.remove("dragging");
-      });
+      console.log("Chatbot UI successfully wired!");
     }
 
-
-    // Toggle open/close
-    btn.addEventListener("click", () => {
-      panel.classList.toggle("hidden");
-    });
-    closeBtn.addEventListener("click", () => {
-      panel.classList.add("hidden");
-    });
-
-    // Message helpers
-    function addMessage(role, text) {
-      const msg = document.createElement("div");
-      msg.className = `chat-message ${role}`;
-      msg.innerHTML = `<div class="message-content">${text}</div>`;
-      messages.appendChild(msg);
-      messages.scrollTop = messages.scrollHeight;
-      return msg;
+    // Start trying to wire immediately or wait for DOM
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", tryWire);
+    } else {
+      tryWire();
     }
-
-    function updateMessage(msg, text) {
-      msg.querySelector(".message-content").innerText = text;
-    }
-
-    async function handleSend() {
-      const query = input.value.trim();
-      if (!query) return;
-
-      addMessage("user", query);
-      input.value = "";
-
-      const botMsg = addMessage("bot", "Thinking...");
-
-      try {
-        const result = await askChatbot(query);
-        updateMessage(botMsg, result.answer);
-
-        // Drilldowns if available
-        if (result.sources) {
-          result.sources.forEach(src => {
-            if (src.command_query && src.command_query.startsWith("dashboard://")) {
-              const drill = document.createElement("button");
-              drill.className = "drilldown-btn";
-              drill.innerText = `🔎 Drilldown: ${src.checkname}`;
-              drill.addEventListener("click", () => openDrilldown(src.command_query));
-              messages.appendChild(drill);
-            }
-          });
-        }
-      } catch (err) {
-        updateMessage(botMsg, "Error: " + err.message);
-      }
-    }
-
-    // Send on button click
-    sendBtn.addEventListener("click", handleSend);
-
-    // Send on Enter key
-    input.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleSend();
-      }
-    });
   })();
+
 
 
 
