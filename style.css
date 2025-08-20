@@ -2640,10 +2640,27 @@ body {
   cursor: pointer;
   margin-left: 6px;
 }
+.chatbot-panel {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 350px;
+  height: 500px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease-in-out;
+  z-index: 9999;
+}
+
 .chatbot-panel.maximized {
   width: 90% !important;
   height: 90% !important;
   bottom: 5% !important;
   right: 5% !important;
+  left: 5% !important;
+  top: 5% !important;
   border-radius: 12px;
 }
