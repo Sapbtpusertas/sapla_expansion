@@ -91,7 +91,7 @@
     let isDragging = false;
     let offsetX, offsetY;
 
-    const floatWrapper = document.getElementById("chatbot-float");
+    const floatWrapper = panel;
 
     if (floatWrapper) {
       // Start drag on header
