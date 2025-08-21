@@ -223,11 +223,41 @@ async function fetchCustomers() {
 
 // Global Application State
 let appState = {
+  customers: [],              // cache of customers from backend
+  customersLoaded: false,     // loaded once on startup
+  customerCoverage: null,     // % coverage from backend (optional, nice UX)
   currentCustomer: null,
   currentSection: 'customers',
   charts: new Map(),
   isInitialized: false,
   modalStack: []
+};
+// ============ Customers API (Netlify Functions) ============
+const customersAPI = {
+  async list() {
+    const res = await fetch('/.netlify/functions/customers-list');
+    if (!res.ok) throw new Error(`customers-list failed: ${res.status}`);
+    const json = await res.json();
+    return json.customers || [];
+  },
+  async create({ name, industry, systems_count = 0, notes = '' }) {
+    const res = await fetch('/.netlify/functions/customers-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, industry, systems_count: Number(systems_count), notes })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Create customer failed');
+    return json.customer;
+  },
+  async coverage(customer_id) {
+    const res = await fetch(`/.netlify/functions/coverage?customer_id=${encodeURIComponent(customer_id)}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    // expect { coverage: [{ coverage_pct: 42, ...}] } per your coverage.js
+    const pct = Array.isArray(json.coverage) && json.coverage[0] && json.coverage[0].coverage_pct;
+    return typeof pct === 'number' ? Math.round(pct) : null;
+  }
 };
 
 // Core Application Class
@@ -565,21 +595,29 @@ class SAPAssessmentPlatform {
   // The updateBreadcrumb function has been REMOVED
 
   // FIXED: Customer Management
-  selectCustomer(customerId) {
-    console.log(`✅ Selecting customer: ${customerId}`);
-    appState.currentCustomer = customerId;
-    
-    const company = companiesData.find(c => c.id === customerId);
-    if (company) {
-      this.showNotification(`✅ Selected: ${company.name}`, 'success');
+  async selectCustomer(customerId) {
+    try {
+      console.log(`✅ Selecting customer: ${customerId}`);
+      appState.currentCustomer = customerId;
+
+      // Fetch optional coverage to show a nice tier string
+      appState.customerCoverage = await customersAPI.coverage(customerId);
+
+      const customer = (appState.customers || []).find(c => c.id === customerId);
+      if (customer) {
+        this.showNotification(`✅ Selected: ${customer.name}`, 'success');
+      }
+
+      this.updateTenantDisplay();
+
+      // Re-render current section (keeps your existing UX)
+      setTimeout(() => {
+        this.renderSectionContent(appState.currentSection);
+      }, 100);
+    } catch (e) {
+      console.error('selectCustomer error', e);
+      this.showNotification('❌ Failed to select customer', 'error');
     }
-    
-    this.updateTenantDisplay();
-    
-    // Re-render current section
-    setTimeout(() => {
-      this.renderSectionContent(appState.currentSection);
-    }, 100);
   }
 
   filterTenantList(searchTerm) {
@@ -599,15 +637,24 @@ class SAPAssessmentPlatform {
   }
 
   // FIXED: Render Methods
-  renderInitialState() {
-    console.log('🎨 Rendering initial state...');
-    this.renderTenantList();
-    
-    // FIXED: Navigate to customers section by default
-    setTimeout(() => {
-      this.navigateTo('customers');
-    }, 200);
+  async renderInitialState() {
+    try {
+      await this.loadCustomersAndRender(); // load from backend first
+    } catch (e) {
+      console.error('Failed to load customers:', e);
+      this.renderTenantList(); // fall back to empty list, UI still works
+    }
+    setTimeout(() => { this.navigateTo('customers'); }, 200);
   }
+
+  async loadCustomersAndRender() {
+  if (!appState.customersLoaded) {
+    const list = await customersAPI.list();
+    appState.customers = Array.isArray(list) ? list : [];
+    appState.customersLoaded = true;
+  }
+  this.renderTenantList();
+}
 
   renderSectionContent(section) {
     console.log(`🎨 Rendering content for section: ${section}`);
@@ -1069,53 +1116,57 @@ class SAPAssessmentPlatform {
 
 
   
-  async renderTenantList() {
-    const tenantList = document.getElementById('tenant-list');
-    if (!tenantList) return;
+renderTenantList() {
+  const tenantList = document.getElementById('tenant-list');
+  if (!tenantList) return;
 
-    const customers = await fetchCustomers();
-
-    tenantList.innerHTML = customers.map(c => `
-      <div class="tenant-item" data-customer-id="${c.id}">
-        <div class="tenant-item-info">
-          <div class="tenant-item-name">${c.name}</div>
-          <div class="tenant-item-details">
-            <span>${c.industry || '—'}</span>
-            <span>•</span>
-            <span>${c.systems || 0} systems</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
-
-    tenantList.querySelectorAll('.tenant-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const id = item.dataset.customerId;
-        this.selectCustomer(id);
-      });
-    });
+  const customers = appState.customers || [];
+  if (customers.length === 0) {
+    tenantList.innerHTML = `
+      <div class="empty-state" style="padding: 12px; color: var(--color-text-secondary);">
+        No customers yet. Click <strong>Add Customer</strong> to create one.
+      </div>`;
+    return;
   }
 
+  tenantList.innerHTML = customers.map(c => `
+    <div class="tenant-item" data-company-id="${c.id}">
+      <div class="tenant-item-info">
+        <div class="tenant-item-name">${c.name}</div>
+        <div class="tenant-item-details">
+          <span>${c.industry || '—'}</span>
+          <span>•</span>
+          <span>${(c.systems_count ?? 0)} systems</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
 
-  async updateTenantDisplay() {
-    const currentCustomer = appState.currentCustomer;
+
+  updateTenantDisplay() {
     const currentTenantName = document.getElementById('current-tenant-name');
     const currentTenantTier = document.getElementById('current-tenant-tier');
 
-    if (!currentCustomer) {
+    const id = appState.currentCustomer;
+    const customer = (appState.customers || []).find(c => c.id === id);
+
+    if (customer && currentTenantName && currentTenantTier) {
+      currentTenantName.textContent = customer.name;
+
+      // Prefer coverage if we have it, else show industry + systems_count
+      if (typeof appState.customerCoverage === 'number') {
+        currentTenantTier.textContent = `Coverage: ${appState.customerCoverage}%`;
+      } else {
+        const sys = (customer.systems_count ?? 0);
+        currentTenantTier.textContent = `${customer.industry || '—'} • ${sys} system${sys === 1 ? '' : 's'}`;
+      }
+    } else if (currentTenantName && currentTenantTier) {
       currentTenantName.textContent = 'Select Customer';
       currentTenantTier.textContent = 'No customer selected';
-      return;
     }
+  }
 
-    const customers = await fetchCustomers();
-    const company = customers.find(c => c.id === currentCustomer);
-
-    if (company) {
-      currentTenantName.textContent = company.name;
-      currentTenantTier.textContent = `${company.industry || '—'} (${company.systems || 0} systems)`;
-    }
-}
 
 
   // FIXED: Action Methods with proper notifications
@@ -1179,35 +1230,38 @@ class SAPAssessmentPlatform {
     `);
   }
 
-  async saveCustomer() {
-    const name = document.getElementById('new-company-name')?.value;
-    const industry = document.getElementById('new-company-industry')?.value;
-    const systems = document.getElementById('new-company-systems')?.value;
+async saveCustomer() {
+  const name = document.getElementById('new-company-name')?.value?.trim();
+  const industry = document.getElementById('new-company-industry')?.value?.trim();
+  const systems = document.getElementById('new-company-systems')?.value;
 
-    if (!name || !industry || !systems) {
-      this.showNotification('❌ Please fill in all fields', 'error');
-      return;
-    }
-
-    try {
-      const res = await fetch("/.netlify/functions/customers-add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, industry, systems: parseInt(systems) }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Insert failed");
-
-      this.showNotification(`✅ Customer "${data.customer.name}" added successfully!`, 'success');
-      this.closeModal();
-
-      await this.renderTenantList();
-      await this.updateTenantDisplay();
-    } catch (err) {
-      this.showNotification(`❌ Failed to add: ${err.message}`, 'error');
-    }
+  if (!name || !industry || systems === '' || systems === null || systems === undefined) {
+    this.showNotification('❌ Please fill in all fields', 'error');
+    return;
   }
+
+  try {
+    const customer = await customersAPI.create({
+      name,
+      industry,
+      systems_count: Number(systems) || 0
+    });
+
+    // Update local cache and UI
+    appState.customers = [customer, ...appState.customers];
+    this.renderTenantList();
+    this.showNotification(`✅ Customer "${customer.name}" added successfully!`, 'success');
+    this.closeModal();
+
+    // Auto-select the newly created customer
+    await this.selectCustomer(customer.id);
+
+  } catch (e) {
+    console.error('saveCustomer error', e);
+    this.showNotification(`❌ Failed to add customer: ${e.message}`, 'error');
+  }
+}
+
 
 
   async viewCustomerDetails(customerId) {
