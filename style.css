@@ -2612,6 +2612,17 @@ body {
   z-index: 9999;
 }
 
+/* Resizable & Draggable */
+.chatbot-panel {
+  resize: both;              /* native resize bottom-right */
+  overflow: auto;            /* ensure scrollbars if resized */
+  cursor: grab;              /* show grab cursor */
+}
+.chatbot-panel.dragging {
+  cursor: grabbing;
+  opacity: 0.9;              /* slight transparency while dragging */
+  transition: none;
+}
 .chatbot-panel.maximized {
   width: 90% !important;
   height: 90% !important;
