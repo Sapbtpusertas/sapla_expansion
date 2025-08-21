@@ -111,101 +111,115 @@ const assessmentFramework = {
   ]
 };
 
-// Enhanced Sample Companies Data
-const companiesData = [
-  {
-    id: 'acme-manufacturing',
-    name: 'ACME Manufacturing Corp',
-    industry: 'Automotive Manufacturing',
-    healthStatus: 'warning',
-    riskLevel: 'Medium Risk',
-    overallScore: 76,
-    lastAssessment: '2025-01-15',
-    systemsCount: 4,
-    createdDate: 'Created: Jan 15, 2025',
-    sapSystems: [
-      { name: 'ECC 6.0 EHP7', type: 'Production', version: '6.0 EHP7', status: 'good', environment: 'PRD' },
-      { name: 'BW 7.4', type: 'Analytics', version: '7.4', status: 'good', environment: 'PRD' },
-      { name: 'SRM 7.0', type: 'Procurement', version: '7.0', status: 'warning', environment: 'PRD' },
-      { name: 'Portal 7.5', type: 'Frontend', version: '7.5', status: 'good', environment: 'PRD' }
-    ],
-    scores: {
-      'landscape-architecture': 82,
-      'technical-operations': 79,
-      'observability-monitoring': 88,
-      'business-resiliency': 71,
-      'security-compliance': 74,
-      'data-governance': 85
-    },
-    trends: {
-      'landscape-architecture': 2,
-      'technical-operations': -1,
-      'observability-monitoring': 5,
-      'business-resiliency': -3,
-      'security-compliance': -2,
-      'data-governance': 1
-    },
-    criticalFindings: [
-      { id: 'F001', title: '12 RFC destinations need security review', severity: 'Medium', category: 'Security' },
-      { id: 'F002', title: '5 medium priority security notes pending', severity: 'Medium', category: 'Security' },
-      { id: 'F003', title: 'Backup verification process needs automation', severity: 'Medium', category: 'Resiliency' }
-    ]
-  },
-  {
-    id: 'global-finance',
-    name: 'Global Finance Solutions',
-    industry: 'Financial Services',
-    healthStatus: 'warning',
-    riskLevel: 'Medium Risk',
-    overallScore: 78,
-    lastAssessment: '2025-01-12',
-    systemsCount: 5,
-    createdDate: 'Created: Jan 12, 2025',
-    sapSystems: [
-      { name: 'S/4HANA 2022', type: 'Production', version: '2022 FPS02', status: 'good', environment: 'PRD' },
-      { name: 'BW/4HANA 2.0', type: 'Analytics', version: '2.0 SP06', status: 'good', environment: 'PRD' },
-      { name: 'Ariba Cloud', type: 'Procurement', version: 'Cloud', status: 'excellent', environment: 'CLOUD' }
-    ],
-    scores: {
-      'landscape-architecture': 85,
-      'technical-operations': 81,
-      'observability-monitoring': 90,
-      'business-resiliency': 73,
-      'security-compliance': 76,
-      'data-governance': 87
-    },
-    trends: { 'landscape-architecture': 3, 'technical-operations': 2, 'observability-monitoring': 1, 'business-resiliency': 4, 'security-compliance': -2, 'data-governance': 6 },
-    criticalFindings: [
-      { id: 'F006', title: '8 RFC destinations need review', severity: 'Medium', category: 'Security' },
-      { id: 'F007', title: '3 high priority security notes pending', severity: 'High', category: 'Security' }
-    ]
-  },
-  {
-    id: 'healthsystems-international',
-    name: 'HealthSystems International',
-    industry: 'Healthcare',
-    healthStatus: 'excellent',
-    riskLevel: 'Low Risk',
-    overallScore: 94,
-    lastAssessment: '2025-01-10',
-    systemsCount: 3,
-    createdDate: 'Created: Jan 10, 2025',
-    sapSystems: [
-      { name: 'S/4HANA Cloud', type: 'Production', version: 'Cloud 2308', status: 'excellent', environment: 'CLOUD' },
-      { name: 'SuccessFactors', type: 'HR', version: 'Cloud', status: 'excellent', environment: 'CLOUD' }
-    ],
-    scores: {
-      'landscape-architecture': 95,
-      'technical-operations': 92,
-      'observability-monitoring': 96,
-      'business-resiliency': 94,
-      'security-compliance': 98,
-      'data-governance': 91
-    },
-    trends: { 'landscape-architecture': 1, 'technical-operations': 3, 'observability-monitoring': 2, 'business-resiliency': 2, 'security-compliance': 1, 'data-governance': 4 },
-    criticalFindings: []
+
+// 🔹 Customer fetch helper
+async function fetchCustomers() {
+  try {
+    const res = await fetch("/.netlify/functions/customers-list");
+    if (!res.ok) throw new Error("Failed to load customers");
+    const { customers } = await res.json();
+    return customers || [];
+  } catch (err) {
+    console.error("❌ fetchCustomers error:", err);
+    return [];
   }
-];
+}
+
+// // Enhanced Sample Companies Data
+// const companiesData = [
+//   {
+//     id: 'acme-manufacturing',
+//     name: 'ACME Manufacturing Corp',
+//     industry: 'Automotive Manufacturing',
+//     healthStatus: 'warning',
+//     riskLevel: 'Medium Risk',
+//     overallScore: 76,
+//     lastAssessment: '2025-01-15',
+//     systemsCount: 4,
+//     createdDate: 'Created: Jan 15, 2025',
+//     sapSystems: [
+//       { name: 'ECC 6.0 EHP7', type: 'Production', version: '6.0 EHP7', status: 'good', environment: 'PRD' },
+//       { name: 'BW 7.4', type: 'Analytics', version: '7.4', status: 'good', environment: 'PRD' },
+//       { name: 'SRM 7.0', type: 'Procurement', version: '7.0', status: 'warning', environment: 'PRD' },
+//       { name: 'Portal 7.5', type: 'Frontend', version: '7.5', status: 'good', environment: 'PRD' }
+//     ],
+//     scores: {
+//       'landscape-architecture': 82,
+//       'technical-operations': 79,
+//       'observability-monitoring': 88,
+//       'business-resiliency': 71,
+//       'security-compliance': 74,
+//       'data-governance': 85
+//     },
+//     trends: {
+//       'landscape-architecture': 2,
+//       'technical-operations': -1,
+//       'observability-monitoring': 5,
+//       'business-resiliency': -3,
+//       'security-compliance': -2,
+//       'data-governance': 1
+//     },
+//     criticalFindings: [
+//       { id: 'F001', title: '12 RFC destinations need security review', severity: 'Medium', category: 'Security' },
+//       { id: 'F002', title: '5 medium priority security notes pending', severity: 'Medium', category: 'Security' },
+//       { id: 'F003', title: 'Backup verification process needs automation', severity: 'Medium', category: 'Resiliency' }
+//     ]
+//   },
+//   {
+//     id: 'global-finance',
+//     name: 'Global Finance Solutions',
+//     industry: 'Financial Services',
+//     healthStatus: 'warning',
+//     riskLevel: 'Medium Risk',
+//     overallScore: 78,
+//     lastAssessment: '2025-01-12',
+//     systemsCount: 5,
+//     createdDate: 'Created: Jan 12, 2025',
+//     sapSystems: [
+//       { name: 'S/4HANA 2022', type: 'Production', version: '2022 FPS02', status: 'good', environment: 'PRD' },
+//       { name: 'BW/4HANA 2.0', type: 'Analytics', version: '2.0 SP06', status: 'good', environment: 'PRD' },
+//       { name: 'Ariba Cloud', type: 'Procurement', version: 'Cloud', status: 'excellent', environment: 'CLOUD' }
+//     ],
+//     scores: {
+//       'landscape-architecture': 85,
+//       'technical-operations': 81,
+//       'observability-monitoring': 90,
+//       'business-resiliency': 73,
+//       'security-compliance': 76,
+//       'data-governance': 87
+//     },
+//     trends: { 'landscape-architecture': 3, 'technical-operations': 2, 'observability-monitoring': 1, 'business-resiliency': 4, 'security-compliance': -2, 'data-governance': 6 },
+//     criticalFindings: [
+//       { id: 'F006', title: '8 RFC destinations need review', severity: 'Medium', category: 'Security' },
+//       { id: 'F007', title: '3 high priority security notes pending', severity: 'High', category: 'Security' }
+//     ]
+//   },
+//   {
+//     id: 'healthsystems-international',
+//     name: 'HealthSystems International',
+//     industry: 'Healthcare',
+//     healthStatus: 'excellent',
+//     riskLevel: 'Low Risk',
+//     overallScore: 94,
+//     lastAssessment: '2025-01-10',
+//     systemsCount: 3,
+//     createdDate: 'Created: Jan 10, 2025',
+//     sapSystems: [
+//       { name: 'S/4HANA Cloud', type: 'Production', version: 'Cloud 2308', status: 'excellent', environment: 'CLOUD' },
+//       { name: 'SuccessFactors', type: 'HR', version: 'Cloud', status: 'excellent', environment: 'CLOUD' }
+//     ],
+//     scores: {
+//       'landscape-architecture': 95,
+//       'technical-operations': 92,
+//       'observability-monitoring': 96,
+//       'business-resiliency': 94,
+//       'security-compliance': 98,
+//       'data-governance': 91
+//     },
+//     trends: { 'landscape-architecture': 1, 'technical-operations': 3, 'observability-monitoring': 2, 'business-resiliency': 2, 'security-compliance': 1, 'data-governance': 4 },
+//     criticalFindings: []
+//   }
+// ];
 
 // Global Application State
 let appState = {
@@ -1053,38 +1067,56 @@ class SAPAssessmentPlatform {
     console.log('Performance chart initialized');
   }
 
-  renderTenantList() {
+
+  
+  async renderTenantList() {
     const tenantList = document.getElementById('tenant-list');
     if (!tenantList) return;
 
-    tenantList.innerHTML = companiesData.map(company => `
-      <div class="tenant-item" data-company-id="${company.id}">
+    const customers = await fetchCustomers();
+
+    tenantList.innerHTML = customers.map(c => `
+      <div class="tenant-item" data-customer-id="${c.id}">
         <div class="tenant-item-info">
-          <div class="tenant-item-name">${company.name}</div>
+          <div class="tenant-item-name">${c.name}</div>
           <div class="tenant-item-details">
-            <span>${company.industry}</span>
+            <span>${c.industry || '—'}</span>
             <span>•</span>
-            <span>${company.systemsCount} systems</span>
+            <span>${c.systems || 0} systems</span>
           </div>
         </div>
       </div>
     `).join('');
+
+    tenantList.querySelectorAll('.tenant-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const id = item.dataset.customerId;
+        this.selectCustomer(id);
+      });
+    });
   }
 
-  updateTenantDisplay() {
+
+  async updateTenantDisplay() {
     const currentCustomer = appState.currentCustomer;
-    const company = companiesData.find(c => c.id === currentCustomer);
     const currentTenantName = document.getElementById('current-tenant-name');
     const currentTenantTier = document.getElementById('current-tenant-tier');
-    
-    if (company && currentTenantName && currentTenantTier) {
-      currentTenantName.textContent = company.name;
-      currentTenantTier.textContent = `${company.riskLevel} (${company.overallScore}%)`;
-    } else if (currentTenantName && currentTenantTier) {
+
+    if (!currentCustomer) {
       currentTenantName.textContent = 'Select Customer';
       currentTenantTier.textContent = 'No customer selected';
+      return;
     }
-  }
+
+    const customers = await fetchCustomers();
+    const company = customers.find(c => c.id === currentCustomer);
+
+    if (company) {
+      currentTenantName.textContent = company.name;
+      currentTenantTier.textContent = `${company.industry || '—'} (${company.systems || 0} systems)`;
+    }
+}
+
 
   // FIXED: Action Methods with proper notifications
 
@@ -1147,7 +1179,7 @@ class SAPAssessmentPlatform {
     `);
   }
 
-  saveCustomer() {
+  async saveCustomer() {
     const name = document.getElementById('new-company-name')?.value;
     const industry = document.getElementById('new-company-industry')?.value;
     const systems = document.getElementById('new-company-systems')?.value;
@@ -1157,45 +1189,45 @@ class SAPAssessmentPlatform {
       return;
     }
 
-    this.showNotification(`✅ Customer "${name}" added successfully!`, 'success');
-    this.closeModal();
-    
-    // In a real app, would add to companiesData and re-render
+    try {
+      const res = await fetch("/.netlify/functions/customers-add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, industry, systems: parseInt(systems) }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Insert failed");
+
+      this.showNotification(`✅ Customer "${data.customer.name}" added successfully!`, 'success');
+      this.closeModal();
+
+      await this.renderTenantList();
+      await this.updateTenantDisplay();
+    } catch (err) {
+      this.showNotification(`❌ Failed to add: ${err.message}`, 'error');
+    }
   }
 
-  viewCustomerDetails(customerId) {
-    const company = companiesData.find(c => c.id === customerId);
+
+  async viewCustomerDetails(customerId) {
+    const customers = await fetchCustomers();
+    const company = customers.find(c => c.id === customerId);
     if (!company) return;
 
     this.showModal(`${company.name} - Details`, `
       <div style="padding: 20px;">
-        <div class="customer-detail-section">
-          <h4>Company Information</h4>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
-            <div><strong>Industry:</strong> ${company.industry}</div>
-            <div><strong>Overall Score:</strong> ${company.overallScore}%</div>
-            <div><strong>Risk Level:</strong> ${company.riskLevel}</div>
-            <div><strong>Systems Count:</strong> ${company.systemsCount}</div>
-          </div>
-        </div>
-        
-        <div class="customer-detail-section">
-          <h4>SAP Systems</h4>
-          ${company.sapSystems.map(system => `
-            <div style="padding: 12px; background: var(--color-bg-1); border-radius: var(--radius-base); margin-bottom: 8px;">
-              <strong>${system.name}</strong> - ${system.type} (${system.version})
-              <br><small>Environment: ${system.environment} | Status: ${system.status}</small>
-            </div>
-          `).join('')}
-        </div>
-        
+        <h4>Company Information</h4>
+        <div><strong>Industry:</strong> ${company.industry}</div>
+        <div><strong>Systems Count:</strong> ${company.systems || 0}</div>
         <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
           <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
-          <button class="btn btn--primary" onclick="window.sapApp.selectCustomer('${customerId}'); window.sapApp.closeModal()">Select Customer</button>
+          <button class="btn btn--primary" onclick="window.sapApp.selectCustomer('${customerId}'); window.sapApp.closeModal()">Select</button>
         </div>
       </div>
     `);
   }
+
 
   importCustomers() {
     this.showNotification('📂 Customer import functionality - would open file dialog', 'info');
