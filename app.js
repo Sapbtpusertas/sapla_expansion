@@ -124,6 +124,15 @@ async function fetchCustomers() {
     return [];
   }
 }
+function deriveRisk(score) {
+  if (score === null || score === undefined) {
+    return { risk_level: "Not yet analyzed", health_status: "—" };
+  }
+  if (score >= 85) return { risk_level: "Low Risk", health_status: "Healthy" };
+  if (score >= 70) return { risk_level: "Medium Risk", health_status: "At Risk" };
+  return { risk_level: "High Risk", health_status: "Critical" };
+}
+
 
 // // Enhanced Sample Companies Data
 // const companiesData = [
@@ -257,7 +266,18 @@ const customersAPI = {
     // expect { coverage: [{ coverage_pct: 42, ...}] } per your coverage.js
     const pct = Array.isArray(json.coverage) && json.coverage[0] && json.coverage[0].coverage_pct;
     return typeof pct === 'number' ? Math.round(pct) : null;
+  },
+    async latestScore(customer_id) {
+    const res = await fetch(`/.netlify/functions/score?customer_id=${encodeURIComponent(customer_id)}`);
+    if (!res.ok) {
+      console.warn("Score fetch failed for", customer_id);
+      return null;
+    }
+    const json = await res.json();
+    // latest_analysis contains overall score we want
+    return json.latest_analysis || null;
   }
+
 };
 
 // Core Application Class
@@ -648,14 +668,36 @@ class SAPAssessmentPlatform {
   }
 
   async loadCustomersAndRender() {
-  if (!appState.customersLoaded) {
-    const list = await customersAPI.list();
-    appState.customers = Array.isArray(list) ? list : [];
-    appState.customersLoaded = true;
-  }
-  this.renderTenantList();
-}
+    if (!appState.customersLoaded) {
+      let list = await customersAPI.list();
 
+      // Attach scores in parallel
+      const enriched = await Promise.all(list.map(async (c) => {
+        const latest = await customersAPI.latestScore(c.id);
+        let overall = null;
+
+        if (latest && typeof latest.overall_score === 'number') {
+          overall = Math.round(latest.overall_score);
+        }
+
+        const { risk_level, health_status } = deriveRisk(overall);
+
+        return {
+          ...c,
+          overall_score: overall,
+          risk_level,
+          health_status
+        };
+      }));
+
+      appState.customers = enriched;
+      appState.customersLoaded = true;
+    }
+
+    this.renderTenantList();
+  }
+
+  
   renderSectionContent(section) {
     console.log(`🎨 Rendering content for section: ${section}`);
     
@@ -695,45 +737,99 @@ class SAPAssessmentPlatform {
     }
   }
 
-  // FIXED: Section Rendering Methods
 
-  renderCustomersSection() {
-    console.log('🎯 Rendering Customers Section');
+
+  
+  // // FIXED: Section Rendering Methods
+
+  // renderCustomersSection() {
+  //   console.log('🎯 Rendering Customers Section');
     
-    const grid = document.getElementById('customers-grid');
-    if (!grid) {
-      console.error('Customers grid not found');
-      return;
+  //   const grid = document.getElementById('customers-grid');
+  //   if (!grid) {
+  //     console.error('Customers grid not found');
+  //     return;
+  //   }
+
+  //   grid.innerHTML = companiesData.map(company => `
+  //     <div class="customer-card" data-customer-id="${company.id}">
+  //       <div class="customer-header">
+  //         <h3 class="customer-name">${company.name}</h3>
+  //         <div class="customer-risk ${company.healthStatus}">${company.riskLevel}</div>
+  //       </div>
+  //       <div class="customer-details">
+  //         <div class="customer-industry">${company.industry}</div>
+  //         <div class="customer-systems">
+  //           SAP SYSTEMS: <span class="customer-systems-count">${company.systemsCount}</span>
+  //         </div>
+  //       </div>
+  //       <div class="customer-date">${company.createdDate}</div>
+  //       <div class="customer-actions">
+  //         <button class="btn btn--primary" data-action="select">
+  //           <span data-lucide="check"></span>
+  //           Select Customer
+  //         </button>
+  //         <button class="btn btn--outline" data-action="details">
+  //           <span data-lucide="eye"></span>
+  //           View Details
+  //         </button>
+  //       </div>
+  //     </div>
+  //   `).join('');
+
+  //   console.log('Customers rendered successfully');
+  // }
+
+renderCustomersSection() {
+  console.log('🎯 Rendering Customers Section');
+  const container = document.getElementById('customers-list');
+  if (!container) return;
+
+  const customers = appState.customers || [];
+  if (customers.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 16px; color: var(--color-text-secondary);">
+        No customers yet. Use <strong>Add Customer</strong> to create one.
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = customers.map(c => {
+    // ✅ Same priority logic as updateTenantDisplay
+    let displayInfo = '';
+    if (typeof c.overall_score === 'number') {
+      displayInfo = `${c.risk_level} (${c.overall_score}%)`;
+    } else if (typeof c.coverage === 'number') {
+      displayInfo = `Coverage: ${c.coverage}%`;
+    } else {
+      const sys = (c.systems_count ?? 0);
+      displayInfo = `${c.industry || '—'} • ${sys} system${sys === 1 ? '' : 's'}`;
     }
 
-    grid.innerHTML = companiesData.map(company => `
-      <div class="customer-card" data-customer-id="${company.id}">
-        <div class="customer-header">
-          <h3 class="customer-name">${company.name}</h3>
-          <div class="customer-risk ${company.healthStatus}">${company.riskLevel}</div>
+    return `
+      <div class="customer-card" data-customer-id="${c.id}">
+        <div class="customer-card-header">
+          <h3>${c.name}</h3>
+          <span class="customer-industry">${displayInfo}</span>
         </div>
-        <div class="customer-details">
-          <div class="customer-industry">${company.industry}</div>
-          <div class="customer-systems">
-            SAP SYSTEMS: <span class="customer-systems-count">${company.systemsCount}</span>
-          </div>
+        <div class="customer-card-body">
+          <p><strong>Systems:</strong> ${c.systems_count ?? 0}</p>
+          <p><strong>Overall Score:</strong> ${c.overall_score ?? '—'}%</p>
+          <p><strong>Risk Level:</strong> ${c.risk_level || 'Not yet analyzed'}</p>
+          <p><strong>Health Status:</strong> ${c.health_status || '—'}</p>
+          <p><strong>Created:</strong> ${new Date(c.created_at).toLocaleDateString()}</p>
+          ${c.notes ? `<p><strong>Notes:</strong> ${c.notes}</p>` : ''}
         </div>
-        <div class="customer-date">${company.createdDate}</div>
-        <div class="customer-actions">
-          <button class="btn btn--primary" data-action="select">
-            <span data-lucide="check"></span>
-            Select Customer
-          </button>
-          <button class="btn btn--outline" data-action="details">
-            <span data-lucide="eye"></span>
-            View Details
-          </button>
+        <div class="customer-card-footer">
+          <button class="btn btn--outline" onclick="window.sapApp.viewCustomerDetails('${c.id}')">View</button>
+          <button class="btn btn--primary" onclick="window.sapApp.selectCustomer('${c.id}')">Select</button>
         </div>
       </div>
-    `).join('');
+    `;
+  }).join('');
+}
 
-    console.log('Customers rendered successfully');
-  }
+
 
   renderDataCollectionSection() {
     console.log('🎯 Rendering Data Collection Section');
@@ -1144,28 +1240,33 @@ renderTenantList() {
 }
 
 
-  updateTenantDisplay() {
-    const currentTenantName = document.getElementById('current-tenant-name');
-    const currentTenantTier = document.getElementById('current-tenant-tier');
+updateTenantDisplay() {
+  const currentTenantName = document.getElementById('current-tenant-name');
+  const currentTenantTier = document.getElementById('current-tenant-tier');
 
-    const id = appState.currentCustomer;
-    const customer = (appState.customers || []).find(c => c.id === id);
+  const id = appState.currentCustomer;
+  const customer = (appState.customers || []).find(c => c.id === id);
 
-    if (customer && currentTenantName && currentTenantTier) {
-      currentTenantName.textContent = customer.name;
+  if (customer && currentTenantName && currentTenantTier) {
+    currentTenantName.textContent = customer.name;
 
-      // Prefer coverage if we have it, else show industry + systems_count
-      if (typeof appState.customerCoverage === 'number') {
-        currentTenantTier.textContent = `Coverage: ${appState.customerCoverage}%`;
-      } else {
-        const sys = (customer.systems_count ?? 0);
-        currentTenantTier.textContent = `${customer.industry || '—'} • ${sys} system${sys === 1 ? '' : 's'}`;
-      }
-    } else if (currentTenantName && currentTenantTier) {
-      currentTenantName.textContent = 'Select Customer';
-      currentTenantTier.textContent = 'No customer selected';
+    if (typeof customer.overall_score === 'number') {
+      // ✅ Prefer analysis results
+      currentTenantTier.textContent = `${customer.risk_level} (${customer.overall_score}%)`;
+    } else if (typeof appState.customerCoverage === 'number') {
+      // fallback: coverage
+      currentTenantTier.textContent = `Coverage: ${appState.customerCoverage}%`;
+    } else {
+      // fallback: industry + systems
+      const sys = (customer.systems_count ?? 0);
+      currentTenantTier.textContent = `${customer.industry || '—'} • ${sys} system${sys === 1 ? '' : 's'}`;
     }
+  } else if (currentTenantName && currentTenantTier) {
+    currentTenantName.textContent = 'Select Customer';
+    currentTenantTier.textContent = 'No customer selected';
   }
+}
+
 
 
 
@@ -1264,23 +1365,50 @@ async saveCustomer() {
 
 
 
-  async viewCustomerDetails(customerId) {
-    const customers = await fetchCustomers();
-    const company = customers.find(c => c.id === customerId);
-    if (!company) return;
+viewCustomerDetails(customerId) {
+  const customer = (appState.customers || []).find(c => c.id === customerId);
+  if (!customer) return;
 
-    this.showModal(`${company.name} - Details`, `
-      <div style="padding: 20px;">
+  // ✅ Same priority logic
+  let displayInfo = '';
+  if (typeof customer.overall_score === 'number') {
+    displayInfo = `${customer.risk_level} (${customer.overall_score}%)`;
+  } else if (typeof customer.coverage === 'number') {
+    displayInfo = `Coverage: ${customer.coverage}%`;
+  } else {
+    const sys = (customer.systems_count ?? 0);
+    displayInfo = `${customer.industry || '—'} • ${sys} system${sys === 1 ? '' : 's'}`;
+  }
+
+  this.showModal(`${customer.name} - Details`, `
+    <div style="padding: 20px; max-height: 75vh; overflow-y: auto;">
+      
+      <div class="customer-summary" style="margin-bottom: 20px; padding: 16px; background: var(--color-bg-1); border-radius: var(--radius-base);">
+        <h4 style="margin: 0 0 12px;">Summary</h4>
+        <p><strong>Status:</strong> ${displayInfo}</p>
+        <p><strong>Risk Level:</strong> ${customer.risk_level || 'Not yet analyzed'}</p>
+        <p><strong>Health Status:</strong> ${customer.health_status || '—'}</p>
+        <p><strong>Coverage:</strong> ${typeof customer.coverage === 'number' ? customer.coverage + '%' : '—'}</p>
+      </div>
+
+      <div class="customer-detail-section">
         <h4>Company Information</h4>
-        <div><strong>Industry:</strong> ${company.industry}</div>
-        <div><strong>Systems Count:</strong> ${company.systems || 0}</div>
-        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
-          <button class="btn btn--primary" onclick="window.sapApp.selectCustomer('${customerId}'); window.sapApp.closeModal()">Select</button>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+          <div><strong>Industry:</strong> ${customer.industry || '—'}</div>
+          <div><strong>Systems Count:</strong> ${customer.systems_count ?? 0}</div>
+          <div><strong>Created:</strong> ${new Date(customer.created_at).toLocaleDateString()}</div>
+          ${customer.notes ? `<div><strong>Notes:</strong> ${customer.notes}</div>` : ''}
         </div>
       </div>
-    `);
-  }
+
+      <div style="text-align: right; border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 20px;">
+        <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
+        <button class="btn btn--primary" onclick="window.sapApp.selectCustomer('${customer.id}'); window.sapApp.closeModal()">Select Customer</button>
+      </div>
+    </div>
+  `);
+}
+
 
 
   importCustomers() {
