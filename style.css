@@ -2598,7 +2598,6 @@ body {
   margin-left: 6px;
 }
 .chatbot-panel {
-  position: fixed;
   bottom: 80px;
   right: 20px;
   width: 350px;
