@@ -1,51 +1,89 @@
 import { createClient } from "@supabase/supabase-js";
-import { GoogleGenerativeAIEmbeddings, GoogleGenerativeAI } from "@google/generative-ai"; 
+import fetch from "node-fetch";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_ENDPOINT =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
 
 export async function handler(event) {
   try {
-    const { question, category } = JSON.parse(event.body);
+    const { customer_id, check_id, category, subcategory, evidence } = JSON.parse(event.body);
 
-    // fetch top N embeddings
-    const embeddingModel = new GoogleGenerativeAIEmbeddings({
-      model: "embedding-001",
-      apiKey: process.env.GEMINI_API_KEY,
-    });
-    const embedding = await embeddingModel.embedContent(question);
+    if (!customer_id || !check_id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing customer_id or check_id" }),
+      };
+    }
 
-    const { data: matches, error } = await supabase.rpc("match_checks_gemini", {
-      query_embedding: embedding.embedding,
-      match_count: 5,
-      filter_category: category || null,
+    // 1) Prompt
+    const prompt = `
+      You are an SAP Technical Assessment AI.
+      Analyze the following evidence for customer ${customer_id}, category ${category}, subcategory ${subcategory}, check ${check_id}.
+      
+      Evidence:
+      ${evidence}
+
+      Output JSON with:
+      - score (0-100)
+      - risk_level (Low/Medium/High)
+      - summary (short sentence)
+      - analysis (detailed text)
+    `;
+
+    // 2) Call Gemini
+    const geminiRes = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
     });
+
+    const geminiData = await geminiRes.json();
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      parsed = {
+        score: null,
+        risk_level: "Unknown",
+        summary: rawText.slice(0, 200),
+        analysis: rawText,
+      };
+    }
+
+    // 3) Insert into results table
+    const { data, error } = await supabase.from("results").insert({
+      customer_id,
+      check_id,
+      score: parsed.score,
+      benchmark: null,
+      delta: null,
+      run_source: "ai",
+      output: {
+        risk_level: parsed.risk_level,
+        summary: parsed.summary,
+        analysis: parsed.analysis,
+        ai_model: "gemini-1.5-flash",
+      },
+    }).select();
+
     if (error) throw error;
-
-    // build context
-    const context = matches.map(m => `- ${m.category} / ${m.subcategory}: ${m.content}`).join("\n");
-
-    // ask Gemini
-    const prompt = `You are an SAP Technical Architect assistant.
-Use the following context from SAP Landscape Assessment checks to answer:
-${context}
-
-Question: ${question}
-
-Answer in clear bullet points with recommendations.`;
-
-    const result = await model.generateContent(prompt);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ answer: result.response.text(), sources: matches }),
+      body: JSON.stringify({ result: data[0] }),
     };
   } catch (err) {
+    console.error("AI Analysis Error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: err.message }),

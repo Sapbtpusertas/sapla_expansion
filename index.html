@@ -51,30 +51,40 @@
                     <span data-lucide="menu"></span>
                 </button>
                 
-                <div class="header-actions">
-                    <button class="theme-toggle" id="theme-toggle">
-                        <span data-lucide="sun" class="theme-icon light-icon"></span>
-                        <span data-lucide="moon" class="theme-icon dark-icon"></span>
-                    </button>
-                    
-                    <div class="tenant-selector">
-                        <button class="tenant-button" id="tenant-button">
-                            <div class="tenant-info">
-                                <span class="tenant-name" id="current-tenant-name">Select Customer</span>
-                                <span class="tenant-tier" id="current-tenant-tier">No customer selected</span>
-                            </div>
-                            <span data-lucide="chevron-down" class="dropdown-icon"></span>
-                        </button>
-                        
-                        <div class="tenant-dropdown hidden" id="tenant-dropdown">
-                            <div class="dropdown-header">
-                                <input type="text" class="tenant-search form-control" placeholder="Search customers..." id="tenant-search">
-                            </div>
-                            <div class="dropdown-content" id="tenant-list">
-                                </div>
-                        </div>
+                <div class="tenant-selector">
+                <!-- Toggle Button -->
+                <button class="tenant-button" id="tenant-button">
+                    <div class="tenant-info">
+                    <span class="tenant-name" id="current-tenant-name">Select Customer</span>
+                    <span class="tenant-tier" id="current-tenant-tier">No customer selected</span>
+                    </div>
+                    <span data-lucide="chevron-down" class="dropdown-icon"></span>
+                </button>
+
+                <!-- Dropdown -->
+                <div class="tenant-dropdown hidden" id="tenant-dropdown">
+                    <div class="dropdown-header">
+                    <input
+                        type="text"
+                        class="tenant-search form-control"
+                        placeholder="Search customers..."
+                        id="tenant-search"
+                    >
+                    </div>
+
+                    <!-- Dynamic list of customers -->
+                    <div class="dropdown-content" id="tenant-list">
+                    <!-- Will be filled dynamically from Supabase -->
+                    <!-- Example:
+                    <div class="tenant-item" data-customer-id="uuid">
+                        <div class="tenant-item-name">ACME Manufacturing Corp</div>
+                        <div class="tenant-item-meta">Automotive | Created 2024-08-20</div>
+                    </div>
+                    -->
                     </div>
                 </div>
+                </div>
+
             </div>
 
             </header>
