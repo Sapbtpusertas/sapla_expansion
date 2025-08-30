@@ -949,7 +949,7 @@ renderCustomersSection() {
             <div class="assessment-points">
               <h5>Assessment Points</h5>
               <div class="points-list">
-                ${category.assessmentPoints.slice(0, 3).map(point => `
+                ${category.assessmentPoints.map(point => `
                   <div class="point-item"
                       data-category-id="${category.id}"
                       data-point-id="${point.id}">
@@ -1755,16 +1755,16 @@ viewCustomerDetails(customerId) {
         <div style="margin-bottom: 20px;">
           <h5>Assessment Points (${category.assessmentPoints.length})</h5>
           ${category.assessmentPoints.map(point => `
-            <div style="padding: 12px; background: var(--color-bg-1); border-radius: var(--radius-base); margin-bottom: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1;">
-                  <strong>${point.name}</strong>
-                  <br><small style="color: var(--color-text-secondary);">${point.description}</small>
-                </div>
-                <div style="text-align: right; font-size: 12px;">
-                  <div>Weight: ${point.weight}%</div>
-                  <div>Records: ${point.records.toLocaleString()}</div>
-                </div>
+            <div class="point-item"
+                data-category-id="${category.id}"
+                data-point-id="${point.id}"
+                style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 8px; background: var(--color-bg-1); border-radius: var(--radius-base); cursor: pointer;">
+              <div style="flex: 1;">
+                <strong>${point.name}</strong><br>
+                <small style="color: var(--color-text-secondary);">${point.description}</small>
+              </div>
+              <div class="point-meta" style="font-size: 12px; color: var(--color-text-secondary);">
+                Weight: ${point.weight}% | Records: ${point.records}
               </div>
             </div>
           `).join('')}
