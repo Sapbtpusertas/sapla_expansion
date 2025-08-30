@@ -787,42 +787,40 @@ class SAPAssessmentPlatform {
 
 
 // app.js
+// app.js
   async uploadAssessmentFile(categoryId, pointId, file) {
     try {
-      // Step 1: upload file directly to Supabase storage
-      const storagePath = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase
-        .storage
+      // Step 1: upload to storage
+      const storageKey = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
+      const { error: uploadErr } = await supabase.storage
         .from("datasets")
-        .upload(storagePath, file, { upsert: true });
+        .upload(storageKey, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
 
-      if (uploadError) throw uploadError;
+      console.log("📂 Uploaded to Supabase storage:", storageKey);
 
-      console.log(`📂 Uploaded to Supabase storage: ${storagePath}`);
-
-      // Step 2: notify backend to ingest it
+      // Step 2: notify backend
       const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer_id: appState.currentCustomer,
           dataset_type: "lmdb_pv",
-          storage_key: storagePath,
+          storage_key: storageKey,
           original_filename: file.name
         })
       });
 
-      if (!res.ok) throw new Error(`Backend ingest failed (${res.status})`);
+      if (!res.ok) throw new Error("Backend ingest failed (502)");
       const result = await res.json();
 
       this.showNotification(`✅ File processed: ${file.name}`, "success");
       console.log("Ingest result:", result);
-
     } catch (err) {
       console.error("Upload error", err);
       this.showNotification("❌ Upload failed", "error");
     }
-  }
+}
 
 
 
