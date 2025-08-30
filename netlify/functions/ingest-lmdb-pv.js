@@ -3,87 +3,116 @@ import { adminClient, ok, bad } from './_supabase.js';
 import * as XLSX from 'xlsx';
 
 export async function handler(event) {
-  if (event.httpMethod !== 'POST') return bad('POST only', 405);
+  console.log("📥 ingest-lmdb-pv invoked:", {
+    method: event.httpMethod,
+    length: event.body?.length,
+  });
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const { customer_id, dataset_type, storage_key, original_filename } = body;
-
-    if (!customer_id || !dataset_type || !storage_key || !original_filename) {
-      return bad('Missing fields: customer_id, dataset_type, storage_key, original_filename');
+    if (event.httpMethod !== "POST") {
+      return bad("POST only", 405);
     }
-    if (dataset_type !== 'lmdb_pv') {
-      return bad('Invalid dataset_type for this endpoint');
+
+    const body = JSON.parse(event.body || "{}");
+    console.log("📝 Parsed body:", body);
+
+    const { customer_id, dataset_type, storage_key, original_filename } = body;
+    if (!customer_id || !dataset_type || !storage_key || !original_filename) {
+      console.error("❌ Missing required fields");
+      return bad("Missing fields: customer_id, dataset_type, storage_key, original_filename");
+    }
+    if (dataset_type !== "lmdb_pv") {
+      console.error("❌ Invalid dataset_type:", dataset_type);
+      return bad("Invalid dataset_type for this endpoint");
     }
 
     const supa = adminClient();
 
-    // 1) Create dataset row
+    // 1) create dataset row
+    console.log("🗄️ Inserting dataset row...");
     const { data: ds, error: e0 } = await supa
-      .from('customer_datasets')
+      .from("customer_datasets")
       .insert({
         customer_id,
         dataset_type,
         storage_key,
         original_filename,
-        status: 'uploaded'
+        status: "uploaded",
       })
       .select()
       .single();
 
-    if (e0) return bad(e0.message, 500);
+    if (e0) {
+      console.error("❌ Error inserting dataset row:", e0);
+      return bad(e0.message, 500);
+    }
+    console.log("✅ Dataset row created:", ds);
 
-    // 2) Download file from Supabase storage
+    // 2) download file from Supabase storage
     const downloadUrl = `${process.env.SUPABASE_URL}/storage/v1/object/${process.env.SUPABASE_BUCKET_DATASETS}/${storage_key}`;
+    console.log("🌐 Downloading file from:", downloadUrl);
+
     const res = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` }
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
     });
-    if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      console.error("❌ Download failed:", res.status, res.statusText);
+      throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+    }
 
     const buf = Buffer.from(await res.arrayBuffer());
+    console.log("📦 Downloaded file buffer size:", buf.length);
 
-    // 3) Parse with XLSX
-    const wb = XLSX.read(buf, { type: 'buffer' });
+    // 3) parse with XLSX (works for xlsx, xls, csv)
+    const wb = XLSX.read(buf, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
 
-    console.log(`📊 Parsed ${rows.length} rows from ${original_filename}`);
+    console.log(`📑 Parsed ${rows.length} rows from XLSX`);
+    if (rows.length > 0) {
+      console.log("🔍 First row sample:", rows[0]);
+    }
 
-    // 4) Prepare inserts
+    // Expected columns: "Technical System Display Name", "Product Version Name"
     const inserts = rows
-      .map(r => ({
+      .map((r) => ({
         customer_id,
         source_dataset_id: ds.id,
-        tech_system_display_name:
-          (r['Technical System Display Name'] ?? r['Technical System'] ?? '').toString(),
-        product_version_name:
-          (r['Product Version Name'] ?? r['Product Version'] ?? '').toString(),
-        raw: r
+        tech_system_display_name: (r["Technical System Display Name"] ?? r["Technical System"] ?? "").toString(),
+        product_version_name: (r["Product Version Name"] ?? r["Product Version"] ?? "").toString(),
+        raw: r,
       }))
-      .filter(x => x.product_version_name && x.tech_system_display_name);
+      .filter((x) => x.product_version_name && x.tech_system_display_name);
 
-    // 5) Delete previous rows for this dataset
-    await supa.from('customer_product_versions').delete().match({ source_dataset_id: ds.id });
+    console.log(`🛠️ Prepared ${inserts.length} valid inserts`);
 
-    // 6) Insert in chunks
+    // delete previous rows for this dataset (if overwriting)
+    await supa.from("customer_product_versions").delete().match({ source_dataset_id: ds.id });
+
+    // insert in chunks
     let inserted = 0;
     const chunk = 500;
     for (let i = 0; i < inserts.length; i += chunk) {
       const part = inserts.slice(i, i + chunk);
-      const { error: e2 } = await supa.from('customer_product_versions').insert(part);
-      if (e2) throw e2;
+      const { error: e2 } = await supa.from("customer_product_versions").insert(part);
+      if (e2) {
+        console.error("❌ Insert error:", e2);
+        throw e2;
+      }
       inserted += part.length;
+      console.log(`✅ Inserted ${inserted}/${inserts.length}`);
     }
 
-    // 7) Update dataset row
+    // update dataset row
     await supa
-      .from('customer_datasets')
-      .update({ status: 'parsed', row_count: inserted })
-      .eq('id', ds.id);
+      .from("customer_datasets")
+      .update({ status: "parsed", row_count: inserted })
+      .eq("id", ds.id);
 
-    return ok({ message: '✅ Parsed and stored', dataset_id: ds.id, inserted });
+    console.log("🎉 Ingest completed successfully");
+    return ok({ dataset_id: ds.id, inserted });
   } catch (err) {
-    console.error('❌ Ingest failed:', err);
-    return bad(err.message || String(err), 500);
+    console.error("💥 Fatal error in ingest-lmdb-pv:", err);
+    return bad(`${err}`, 500);
   }
 }
