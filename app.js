@@ -796,7 +796,7 @@ async uploadAssessmentFile(categoryId, pointId, file) {
     // Step 1: Upload file to Supabase storage
     const storageKey = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
 
-    const { data, error: uploadError } = await supabase.storage
+    const { data, error: uploadError } = await window.supabase.storage
       .from("datasets")
       .upload(storageKey, file);
 

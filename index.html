@@ -585,6 +585,19 @@
         </div>
     </div>
     <!-- RAG enhancement layer - load BEFORE the main app -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+    fetch("/.netlify/functions/env")
+        .then(r => r.json())
+        .then(env => {
+        window.supabase = supabase.createClient(
+            env.SUPABASE_URL,
+            env.SUPABASE_ANON_KEY
+        );
+        });
+    </script>
+
+
     <script src="app.rag.js"></script>
     <script src="app.js"></script>
 </body>
