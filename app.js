@@ -1948,40 +1948,40 @@ viewCustomerDetails(customerId) {
   }
 
 
-      // Build a simple table for display (change columns as required)
-      const tableHtml = `
-        <div style="max-height:60vh; overflow:auto;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Technical System</th>
-                <th>Product Version</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${(r.tech_system_display_name || '').replace(/</g,'&lt;')}</td>
-                  <td>${(r.product_version_name || '').replace(/</g,'&lt;')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        <div style="text-align:right; margin-top:12px;">
-          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
-          <button class="btn btn--primary" onclick="(function(){ /* future: export/download */ })()">Download CSV</button>
-        </div>
-      `;
+  //     // Build a simple table for display (change columns as required)
+  //     const tableHtml = `
+  //       <div style="max-height:60vh; overflow:auto;">
+  //         <table class="data-table">
+  //           <thead>
+  //             <tr>
+  //               <th>Technical System</th>
+  //               <th>Product Version</th>
+  //             </tr>
+  //           </thead>
+  //           <tbody>
+  //             ${rows.map(r => `
+  //               <tr>
+  //                 <td>${(r.tech_system_display_name || '').replace(/</g,'&lt;')}</td>
+  //                 <td>${(r.product_version_name || '').replace(/</g,'&lt;')}</td>
+  //               </tr>
+  //             `).join('')}
+  //           </tbody>
+  //         </table>
+  //       </div>
+  //       <div style="text-align:right; margin-top:12px;">
+  //         <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
+  //         <button class="btn btn--primary" onclick="(function(){ /* future: export/download */ })()">Download CSV</button>
+  //       </div>
+  //     `;
 
-      this.showModal(`Uploaded data: ${pointId}`, tableHtml);
-      this.showNotification(`✅ Loaded ${rows.length} rows`, 'success');
+  //     this.showModal(`Uploaded data: ${pointId}`, tableHtml);
+  //     this.showNotification(`✅ Loaded ${rows.length} rows`, 'success');
 
-    } catch (err) {
-      console.error('showPointData error', err);
-      this.showNotification('❌ Could not load dataset rows', 'error');
-    }
-  }
+  //   } catch (err) {
+  //     console.error('showPointData error', err);
+  //     this.showNotification('❌ Could not load dataset rows', 'error');
+  //   }
+  // }
 
   exportCategory(categoryId) {
     const category = assessmentFramework.categories.find(c => c.id === categoryId);
