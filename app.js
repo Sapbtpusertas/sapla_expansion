@@ -24,7 +24,7 @@ const assessmentFramework = {
       icon: 'server',
       color: '#3B82F6',
       assessmentPoints: [
-        { id: 'CHK_RFC_001', name: 'System Architecture', weight: 15, description: 'System Architecture analysis', records: 47 },
+        { id: 'CHK_SYS_001', name: 'System Architecture', weight: 15, description: 'System Architecture analysis', records: 47 },
         { id: 'CHK_CPU_001', name: 'Infrastructure Health Review', weight: 12, description: 'Infrastructure Health Review', records: 2847 },
         { id: 'CHK_MEM_001', name: 'Software Lifecycle Management', weight: 10, description: 'Software Lifecycle optimization', records: 156 },
         { id: 'CHK_NET_001', name: 'Data Growth Optimization', weight: 8, description: 'Data Growth Optimization', records: 892 },
@@ -1833,10 +1833,19 @@ viewCustomerDetails(customerId) {
           <div style="background: var(--color-bg-1); padding: 16px; border-radius: var(--radius-base); font-family: var(--font-family-mono); font-size: 12px; overflow-x: auto;">
             <div style="color: var(--color-primary); font-weight: bold; margin-bottom: 8px;"># Sample records from ${category.name}:</div>
             ${category.assessmentPoints.slice(0, 8).map(point => `
-              <div style="margin: 4px 0; color: var(--color-text);">
-                <span style="color: var(--color-primary);">${point.id}</span>: ${point.name} - 
-                <span style="color: var(--dashboard-success);">${point.records.toLocaleString()} records</span> | 
-                Weight: ${point.weight}%
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; margin:8px 0; background: var(--color-bg-1); border-radius: var(--radius-base);">
+                <div style="flex:1; min-width:0;">
+                  <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    <span style="color:var(--color-primary); margin-right:8px;">${point.id}</span> ${point.name}
+                  </div>
+                  <div style="font-size:12px; color:var(--color-text-secondary); margin-top:4px;">
+                    ${point.records.toLocaleString()} records • Weight: ${point.weight}%
+                  </div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; margin-left:12px;">
+                  <button class="btn btn--outline" onclick="window.sapApp.showPointData('${point.id}')">📂 View Data</button>
+                  <button class="btn btn--primary" onclick="window.sapApp.openPointCollectionModal && window.sapApp.openPointCollectionModal('${point.id}')">➕ Collect</button>
+                </div>
               </div>
             `).join('')}
             ${category.assessmentPoints.length > 8 ? `
@@ -1853,6 +1862,70 @@ viewCustomerDetails(customerId) {
         </div>
       </div>
     `);
+  }
+  // show uploaded rows for a given assessment point (maps point -> dataset type)
+  async showPointData(pointId) {
+    try {
+      if (!appState.currentCustomer) {
+        this.showNotification('❌ Please select a customer first', 'error');
+        return;
+      }
+
+      // map assessment point -> dataset_type (add more mappings here)
+      const datasetMap = {
+        'CHK_RFC_001': 'lmdb_pv' // System Architecture -> LMDB Product Versions
+        // add more mappings: 'CHK_CPU_001': 'cpu_stats', ...
+      };
+
+      const datasetType = datasetMap[pointId] || 'lmdb_pv';
+
+      this.showNotification('📥 Loading data...', 'info');
+
+      const url = `/.netlify/functions/dataset-rows?customer_id=${encodeURIComponent(appState.currentCustomer)}&dataset_type=${encodeURIComponent(datasetType)}`;
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
+
+      const payload = await res.json();
+      const rows = payload.rows || [];
+
+      if (!rows.length) {
+        this.showNotification('⚠️ No uploaded data found for this assessment point', 'warning');
+        return;
+      }
+
+      // Build a simple table for display (change columns as required)
+      const tableHtml = `
+        <div style="max-height:60vh; overflow:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Technical System</th>
+                <th>Product Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${(r.tech_system_display_name || '').replace(/</g,'&lt;')}</td>
+                  <td>${(r.product_version_name || '').replace(/</g,'&lt;')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:right; margin-top:12px;">
+          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
+          <button class="btn btn--primary" onclick="(function(){ /* future: export/download */ })()">Download CSV</button>
+        </div>
+      `;
+
+      this.showModal(`Uploaded data: ${pointId}`, tableHtml);
+      this.showNotification(`✅ Loaded ${rows.length} rows`, 'success');
+
+    } catch (err) {
+      console.error('showPointData error', err);
+      this.showNotification('❌ Could not load dataset rows', 'error');
+    }
   }
 
   exportCategory(categoryId) {
