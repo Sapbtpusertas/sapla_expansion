@@ -786,28 +786,46 @@ class SAPAssessmentPlatform {
   }
 
 
-  async uploadAssessmentFile(categoryId, pointId, file) {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("customer_id", appState.currentCustomer);
-      formData.append("category_id", categoryId);
-      formData.append("point_id", pointId);
-
-      const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
-        method: "POST",
-        body: formData
-      });
-
-      if (!res.ok) throw new Error("Upload failed");
-      const result = await res.json();
-      this.showNotification(`✅ File uploaded: ${file.name}`, "success");
-      console.log("Upload result:", result);
-    } catch (err) {
-      console.error("Upload error", err);
-      this.showNotification("❌ Upload failed", "error");
+async uploadAssessmentFile(categoryId, pointId, file) {
+  try {
+    if (!appState.currentCustomer) {
+      this.showNotification("❌ Please select a customer first", "error");
+      return;
     }
+
+    // Step 1: Upload file to Supabase storage
+    const storageKey = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
+
+    const { data, error: uploadError } = await supabase.storage
+      .from("datasets")
+      .upload(storageKey, file);
+
+    if (uploadError) throw uploadError;
+
+    // Step 2: Call Netlify function to ingest
+    const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customer_id: appState.currentCustomer,
+        dataset_type: "lmdb_pv",
+        storage_key: storageKey,
+        original_filename: file.name
+      })
+    });
+
+    if (!res.ok) throw new Error("Upload failed");
+    const result = await res.json();
+
+    this.showNotification(`✅ File uploaded: ${file.name}`, "success");
+    console.log("Upload result:", result);
+
+  } catch (err) {
+    console.error("Upload error", err);
+    this.showNotification("❌ Upload failed", "error");
   }
+}
+
 
   
   // // FIXED: Section Rendering Methods
