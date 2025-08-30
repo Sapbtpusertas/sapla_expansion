@@ -1934,12 +1934,16 @@ viewCustomerDetails(customerId) {
           </tbody>
         </table>
       `;
-      this.showModal(`Dataset Preview - ${pointId}`, `
-        <div style="max-height:70vh;overflow:auto;">${tableHtml}</div>
-        <div style="margin-top:12px;text-align:right;">
-          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
-        </div>
-      `);
+        this.showModal(`${pointId} - Uploaded Data`, `
+          <div style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+            <h4 style="margin-bottom: 16px;">Dataset Preview</h4>
+            ${tableHtml}
+            <div style="text-align: right; margin-top: 16px;">
+              <button class="btn btn--outline" onclick="window.sapApp.closeModal()" style="margin-right: 8px;">Close</button>
+              <button class="btn btn--primary" onclick="window.sapApp.exportPointData('${pointId}')">⬇️ Download CSV</button>
+            </div>
+          </div>
+        `);
 
     } catch (err) {
       console.error("showPointData error", err);
@@ -1947,6 +1951,56 @@ viewCustomerDetails(customerId) {
     }
   }
 
+  async exportPointData(pointId) {
+    try {
+      if (!appState.currentCustomer) {
+        this.showNotification('❌ Please select a customer first', 'error');
+        return;
+      }
+
+      const datasetMap = {
+        'CHK_SYS_001': 'lmdb_pv'
+        // add more mappings as needed
+      };
+      const datasetType = datasetMap[pointId] || 'lmdb_pv';
+
+      this.showNotification('📥 Preparing CSV export...', 'info');
+
+      const url = `/.netlify/functions/dataset-rows?customer_id=${encodeURIComponent(appState.currentCustomer)}&dataset_type=${encodeURIComponent(datasetType)}&limit=10000`;
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
+
+      const payload = await res.json();
+      const rows = payload.rows || [];
+
+      if (!rows.length) {
+        this.showNotification('⚠️ No data available to export', 'warning');
+        return;
+      }
+
+      // Convert JSON -> CSV
+      const headers = Object.keys(rows[0]);
+      const csv = [
+        headers.join(","),
+        ...rows.map(r => headers.map(h => `"${(r[h] ?? "").toString().replace(/"/g, '""')}"`).join(","))
+      ].join("\n");
+
+      // Download as file
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlBlob = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = urlBlob;
+      link.setAttribute("download", `${pointId}_dataset.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      this.showNotification("✅ CSV downloaded successfully", "success");
+    } catch (err) {
+      console.error("CSV export error", err);
+      this.showNotification("❌ CSV export failed", "error");
+    }
+  }
 
   //     // Build a simple table for display (change columns as required)
   //     const tableHtml = `
