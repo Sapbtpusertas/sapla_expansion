@@ -786,45 +786,44 @@ class SAPAssessmentPlatform {
   }
 
 
-async uploadAssessmentFile(categoryId, pointId, file) {
-  try {
-    if (!appState.currentCustomer) {
-      this.showNotification("❌ Please select a customer first", "error");
-      return;
+// app.js
+  async uploadAssessmentFile(categoryId, pointId, file) {
+    try {
+      // Step 1: upload file directly to Supabase storage
+      const storagePath = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase
+        .storage
+        .from("datasets")
+        .upload(storagePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      console.log(`📂 Uploaded to Supabase storage: ${storagePath}`);
+
+      // Step 2: notify backend to ingest it
+      const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_id: appState.currentCustomer,
+          dataset_type: "lmdb_pv",
+          storage_key: storagePath,
+          original_filename: file.name
+        })
+      });
+
+      if (!res.ok) throw new Error(`Backend ingest failed (${res.status})`);
+      const result = await res.json();
+
+      this.showNotification(`✅ File processed: ${file.name}`, "success");
+      console.log("Ingest result:", result);
+
+    } catch (err) {
+      console.error("Upload error", err);
+      this.showNotification("❌ Upload failed", "error");
     }
-
-    // Step 1: Upload file to Supabase storage
-    const storageKey = `${appState.currentCustomer}/lmdb_pv/${Date.now()}-${file.name}`;
-
-    const { data, error: uploadError } = await window.supabase.storage
-      .from("datasets")
-      .upload(storageKey, file);
-
-    if (uploadError) throw uploadError;
-
-    // Step 2: Call Netlify function to ingest
-    const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customer_id: appState.currentCustomer,
-        dataset_type: "lmdb_pv",
-        storage_key: storageKey,
-        original_filename: file.name
-      })
-    });
-
-    if (!res.ok) throw new Error("Upload failed");
-    const result = await res.json();
-
-    this.showNotification(`✅ File uploaded: ${file.name}`, "success");
-    console.log("Upload result:", result);
-
-  } catch (err) {
-    console.error("Upload error", err);
-    this.showNotification("❌ Upload failed", "error");
   }
-}
+
 
 
   
