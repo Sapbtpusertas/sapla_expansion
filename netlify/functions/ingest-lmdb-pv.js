@@ -1,6 +1,5 @@
 // netlify/functions/ingest-lmdb-pv.js
 import { adminClient, ok, bad } from './_supabase.js';
-import fetch from 'node-fetch';
 import * as XLSX from 'xlsx';
 
 export async function handler(event) {
