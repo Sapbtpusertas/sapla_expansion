@@ -4,6 +4,21 @@ import fetch from 'node-fetch';
 import * as XLSX from 'xlsx';
 
 export async function handler(event) {
+  try {
+    console.log("📥 ingest-lmdb-pv event", event.httpMethod, event.body);
+
+    if (event.httpMethod !== "POST") return bad("POST only", 405);
+    const body = JSON.parse(event.body || "{}");
+    console.log("Parsed body:", body);
+
+    const { customer_id, dataset_type, storage_key, original_filename } = body;
+    if (!customer_id || !dataset_type || !storage_key || !original_filename) {
+      return bad("Missing fields: customer_id, dataset_type, storage_key, original_filename");
+    }
+    if (dataset_type !== "lmdb_pv") return bad("Invalid dataset_type for this endpoint");
+
+
+export async function handler(event) {
   if (event.httpMethod !== 'POST') return bad('POST only', 405);
   const body = JSON.parse(event.body || '{}');
   const { customer_id, dataset_type, storage_key, original_filename } = body;
@@ -41,6 +56,8 @@ export async function handler(event) {
     if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
 
     const buf = Buffer.from(await res.arrayBuffer());
+    console.log("Downloading from:", downloadUrl);
+    console.log("Dataset row:", ds);
 
     // 3) parse with XLSX (works for xlsx, xls, csv)
     const wb = XLSX.read(buf, { type: 'buffer' });
@@ -80,4 +97,8 @@ export async function handler(event) {
     await supa.from('customer_datasets').update({ status: 'error', error: `${err}` }).eq('id', ds.id);
     return bad(`${err}`, 500);
   }
+    console.log("Row sample:", rows[0]);
+    console.log("Headers:", Object.keys(rows[0] || {}));
+    console.log("Prepared inserts:", inserts.slice(0,5));
+
 }
