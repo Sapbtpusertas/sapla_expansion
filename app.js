@@ -401,6 +401,17 @@ class SAPAssessmentPlatform {
       this.openCollectionDetails(categoryId);
       return;
     }
+  // NEW: Assessment point items (drill down)
+  if (e.target.closest('.point-item')) {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = e.target.closest('.point-item');
+    const categoryId = item.dataset.categoryId;
+    const pointId = item.dataset.pointId;
+    console.log('Assessment point clicked:', categoryId, pointId);
+    this.openAssessmentPoint(categoryId, pointId);
+    return;
+}
 
     // FIXED: Dataset category cards
     if (e.target.closest('.dataset-category')) {
@@ -736,8 +747,67 @@ class SAPAssessmentPlatform {
       console.error('Error rendering section content:', error);
     }
   }
+  openAssessmentPoint(categoryId, pointId) {
+    const category = assessmentFramework.categories.find(c => c.id === categoryId);
+    const point = category?.assessmentPoints.find(p => p.id === pointId);
+    if (!category || !point) return;
+
+    console.log(`Opening assessment point modal: ${point.name}`);
+
+    this.showModal(`${point.name} - Data Collection`, `
+      <div style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+        <p>${point.description}</p>
+        <div class="upload-section">
+          <label class="file-upload">
+            <input type="file" id="file-input-${pointId}" hidden>
+            <span class="btn btn--primary">Upload File</span>
+          </label>
+          <p class="upload-description">
+            Example: LMDB → Landscape Reporting → TechSystems-ProductVersions → Export
+          </p>
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
+        </div>
+      </div>
+    `);
+
+    // Attach file handler
+    const input = document.getElementById(`file-input-${pointId}`);
+    if (input) {
+      input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          console.log('Uploading file for', pointId, file.name);
+          await this.uploadAssessmentFile(categoryId, pointId, file);
+        }
+      });
+    }
+  }
 
 
+  async uploadAssessmentFile(categoryId, pointId, file) {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("customer_id", appState.currentCustomer);
+      formData.append("category_id", categoryId);
+      formData.append("point_id", pointId);
+
+      const res = await fetch("/.netlify/functions/ingest-lmdb-pv", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      const result = await res.json();
+      this.showNotification(`✅ File uploaded: ${file.name}`, "success");
+      console.log("Upload result:", result);
+    } catch (err) {
+      console.error("Upload error", err);
+      this.showNotification("❌ Upload failed", "error");
+    }
+  }
 
   
   // // FIXED: Section Rendering Methods
@@ -880,7 +950,11 @@ renderCustomersSection() {
               <h5>Assessment Points</h5>
               <div class="points-list">
                 ${category.assessmentPoints.slice(0, 3).map(point => `
-                  <div class="point-item">• ${point.name}</div>
+                  <div class="point-item"
+                      data-category-id="${category.id}"
+                      data-point-id="${point.id}">
+                    • ${point.name}
+                  </div>
                 `).join('')}
               </div>
               ${category.assessmentPoints.length > 3 ? `
