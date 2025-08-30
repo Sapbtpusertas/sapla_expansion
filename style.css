@@ -2698,20 +2698,25 @@ body {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
-  background: transparent;
+  font-size: 12px;
+  background: var(--color-bg-1);
 }
-.data-table th, .data-table td {
+
+.data-table th,
+.data-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
   text-align: left;
+  white-space: nowrap;
 }
+
 .data-table th {
-  background: var(--color-bg-2);
-  color: var(--color-text-secondary);
-  font-weight: 600;
   position: sticky;
   top: 0;
+  background: var(--color-bg-2); /* ensures header isn't transparent */
+  z-index: 2; /* make sure it stays above the rows */
+  font-weight: bold;
+  color: var(--color-primary);
 }
 .data-table tbody tr:hover td {
   background: var(--color-bg-hover);
