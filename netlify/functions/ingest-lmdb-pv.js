@@ -3,64 +3,42 @@ import { adminClient, ok, bad } from './_supabase.js';
 import * as XLSX from 'xlsx';
 
 export async function handler(event) {
-  if (event.httpMethod !== "POST") return bad("POST only", 405);
-
   try {
-    const body = JSON.parse(event.body || "{}");
-    const { customer_id, dataset_type, storage_key, original_filename } = body;
+    console.log("📥 ingest-lmdb-pv invoked", {
+      method: event.httpMethod,
+      bodyLength: event.body?.length,
+      rawBody: event.body?.slice(0, 200)  // first 200 chars for debug
+    });
 
-    if (!customer_id || !dataset_type || !storage_key || !original_filename) {
-      return bad("Missing required fields");
+    if (event.httpMethod !== "POST") {
+      console.log("❌ Wrong method");
+      return bad("POST only", 405);
     }
-    if (dataset_type !== "lmdb_pv") return bad("Invalid dataset_type");
 
-    const supa = adminClient();
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (parseErr) {
+      console.error("❌ JSON parse failed", parseErr);
+      return bad("Invalid JSON body", 400);
+    }
 
-    // Step 1: insert dataset row
-    const { data: ds, error } = await supa
-      .from("customer_datasets")
-      .insert({
-        customer_id,
-        dataset_type,
-        storage_key,
-        original_filename,
-        status: "uploaded"
-      })
-      .select()
-      .single();
-    if (error) throw error;
+    console.log("✅ Parsed body:", body);
+    const { customer_id, dataset_type, storage_key, original_filename } = body;
+    if (!customer_id || !dataset_type || !storage_key || !original_filename) {
+      console.error("❌ Missing fields");
+      return bad("Missing fields: customer_id, dataset_type, storage_key, original_filename", 400);
+    }
 
-    // Step 2: download the file from Supabase storage
-    const downloadUrl = `${process.env.SUPABASE_URL}/storage/v1/object/${process.env.SUPABASE_BUCKET_DATASETS}/${storage_key}`;
-    const res = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` }
-    });
-    if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+    if (dataset_type !== "lmdb_pv") {
+      console.error("❌ Wrong dataset_type:", dataset_type);
+      return bad("Invalid dataset_type", 400);
+    }
 
-    const buf = Buffer.from(await res.arrayBuffer());
-
-    // Step 3: parse with XLSX
-    const wb = XLSX.read(buf, { type: "buffer" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
-
-    console.log("🔎 First row keys:", Object.keys(rows[0] || {}));
-    console.log("🔎 Sample row:", rows[0]);
-
-    // Step 4: update dataset row (parsed but not inserted)
-    await supa.from("customer_datasets")
-      .update({ status: "parsed", row_count: rows.length })
-      .eq("id", ds.id);
-
-    return ok({
-      message: "Parsed file ✅ (dry run, no inserts yet)",
-      dataset_id: ds.id,
-      row_count: rows.length,
-      sample: rows[0]
-    });
-
+    // 🔴 TEMP: stop here just to verify function works
+    return ok({ message: "Dry run successful 🚀", received: body });
   } catch (err) {
-    console.error("💥 Ingest error:", err);
-    return bad(`${err}`, 500);
+    console.error("💥 Fatal error in handler", err);
+    return bad("Unhandled error: " + err.message, 500);
   }
 }
