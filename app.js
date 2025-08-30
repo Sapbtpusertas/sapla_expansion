@@ -1547,11 +1547,76 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-  async runQuickAssessment() {
-    this.showNotification('⚡ Running quick assessment across key metrics...', 'info');
-    await this.sleep(1500);
-    this.showNotification('✅ Quick assessment completed! Key findings available.', 'success');
+    async runQuickAssessment() {
+    const customerId = appState.currentCustomer;
+    if (!customerId) {
+      this.showNotification("❌ Please select a customer first", "error");
+      return;
+    }
+
+    try {
+      // call backend
+      const res = await fetch(`/.netlify/functions/score?customer_id=${customerId}`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const { by_category, latest_result } = await res.json();
+
+      // For now, just show popup with mismatches
+      this.showQuickAssessmentReport(by_category, latest_result);
+    } catch (err) {
+      console.error("Quick assessment failed", err);
+      this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
+    }
   }
+
+  showQuickAssessmentReport(byCategory, latestResult) {
+    const now = new Date();
+    const sixMonths = new Date();
+    sixMonths.setMonth(now.getMonth() + 6);
+
+    // Filter findings
+    const findings = (latestResult?.findings || []).filter(f => {
+      if (!f.end_of_mainstream_maintenance) return false;
+      const eomm = new Date(f.end_of_mainstream_maintenance);
+      return eomm < sixMonths;
+    });
+
+    // Build HTML
+    let html = `
+      <div style="padding:20px; max-height:70vh; overflow-y:auto;">
+        <h4>Quick Assessment Results</h4>
+        <p>We checked system product versions against SAP Master PV list.</p>
+    `;
+
+    if (!findings.length) {
+      html += `<div class="status status--success">✅ All systems are in support window (6+ months)</div>`;
+    } else {
+      findings.forEach(f => {
+        const eomm = new Date(f.end_of_mainstream_maintenance);
+        const daysLeft = Math.round((eomm - now) / (1000*60*60*24));
+        let statusClass = daysLeft < 0 ? "error" : daysLeft < 90 ? "warning" : "info";
+
+        html += `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card__body">
+              <strong>${f.technical_system_display_name}</strong><br/>
+              <span>${f.product_version_name}</span><br/>
+              <span class="status status--${statusClass}">
+                End of Maintenance: ${eomm.toLocaleDateString()} (${daysLeft} days left)
+              </span>
+            </div>
+          </div>`;
+      });
+    }
+
+  html += `
+      <div style="text-align:right; margin-top:20px;">
+        <button class="btn btn--primary" onclick="window.sapApp.closeModal()">Close</button>
+      </div>
+    </div>
+  `;
+
+  this.showModal("⚡ Quick Assessment", html);
+}
 
   generateReport(reportType) {
     const reportNames = {
@@ -2056,7 +2121,11 @@ viewCustomerDetails(customerId) {
 // FIXED: Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🚀 DOM loaded, initializing SAP Assessment Platform...');
-  
+
+document.getElementById('quick-assessment')?.addEventListener('click', () => {
+  window.sapApp.runQuickAssessment();
+});
+
   const app = new SAPAssessmentPlatform();
   window.sapApp = app;
   
