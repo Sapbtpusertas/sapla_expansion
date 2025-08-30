@@ -1802,44 +1802,42 @@ viewCustomerDetails(customerId) {
     }, 2000);
   }
 
+  // 1. Modal for category dataset overview
   openDatasetSample(categoryId) {
     const category = assessmentFramework.categories.find(c => c.id === categoryId);
     if (!category) return;
-
-    const totalRecords = category.assessmentPoints.reduce((sum, point) => sum + point.records, 0);
 
     this.showModal(`${category.name} - Sample Data`, `
       <div style="padding: 20px; max-height: 70vh; overflow-y: auto;">
         <div style="margin-bottom: 20px;">
           <h4>${category.name} Dataset</h4>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 16px 0;">
-            <div style="text-align: center; padding: 16px; background: var(--color-bg-1); border-radius: var(--radius-base);">
-              <div style="font-size: 24px; font-weight: bold; color: var(--color-primary);">${category.assessmentPoints.length}</div>
-              <div style="font-size: 12px; color: var(--color-text-secondary);">Assessment Points</div>
+            <div class="stat-box">
+              <div class="stat-value">${category.assessmentPoints.length}</div>
+              <div class="stat-label">Assessment Points</div>
             </div>
-            <div style="text-align: center; padding: 16px; background: var(--color-bg-1); border-radius: var(--radius-base);">
-              <div style="font-size: 24px; font-weight: bold; color: var(--color-primary);">${totalRecords.toLocaleString()}</div>
-              <div style="font-size: 12px; color: var(--color-text-secondary);">Total Records</div>
+            <div class="stat-box">
+              <div class="stat-value" id="total-records">…</div>
+              <div class="stat-label">Total Records</div>
             </div>
-            <div style="text-align: center; padding: 16px; background: var(--color-bg-1); border-radius: var(--radius-base);">
-              <div style="font-size: 24px; font-weight: bold; color: var(--dashboard-success);">100%</div>
-              <div style="font-size: 12px; color: var(--color-text-secondary);">Completion</div>
+            <div class="stat-box">
+              <div class="stat-value" style="color: var(--dashboard-success);">100%</div>
+              <div class="stat-label">Completion</div>
             </div>
           </div>
         </div>
         
         <div style="margin-bottom: 20px;">
-          <h5>Sample Data Records</h5>
+          <h5>Assessment Points</h5>
           <div style="background: var(--color-bg-1); padding: 16px; border-radius: var(--radius-base); font-family: var(--font-family-mono); font-size: 12px; overflow-x: auto;">
-            <div style="color: var(--color-primary); font-weight: bold; margin-bottom: 8px;"># Sample records from ${category.name}:</div>
-            ${category.assessmentPoints.slice(0, 8).map(point => `
+            ${category.assessmentPoints.map(point => `
               <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; margin:8px 0; background: var(--color-bg-1); border-radius: var(--radius-base);">
                 <div style="flex:1; min-width:0;">
                   <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     <span style="color:var(--color-primary); margin-right:8px;">${point.id}</span> ${point.name}
                   </div>
-                  <div style="font-size:12px; color:var(--color-text-secondary); margin-top:4px;">
-                    ${point.records.toLocaleString()} records • Weight: ${point.weight}%
+                  <div id="point-summary-${point.id}" style="font-size:12px; color:var(--color-text-secondary); margin-top:4px;">
+                    ⏳ Loading…
                   </div>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; margin-left:12px;">
@@ -1848,11 +1846,6 @@ viewCustomerDetails(customerId) {
                 </div>
               </div>
             `).join('')}
-            ${category.assessmentPoints.length > 8 ? `
-              <div style="margin: 8px 0; font-style: italic; color: var(--color-text-secondary);">
-                ... and ${category.assessmentPoints.length - 8} more assessment points
-              </div>
-            ` : ''}
           </div>
         </div>
         
@@ -1862,36 +1855,98 @@ viewCustomerDetails(customerId) {
         </div>
       </div>
     `);
+
+    // after modal shows, fetch summaries for each point
+    category.assessmentPoints.forEach(p => this.fetchPointSummary(p.id));
   }
-  // show uploaded rows for a given assessment point (maps point -> dataset type)
+
+  // 2. Fetch and update row count per point
+  async fetchPointSummary(pointId) {
+    if (!appState.currentCustomer) return;
+
+    // mapping: assessment point -> dataset type
+    const datasetMap = {
+      'CHK_SYS_001': 'lmdb_pv'
+      // add more: 'CHK_CPU_001': 'cpu_stats', etc.
+    };
+    const datasetType = datasetMap[pointId];
+    if (!datasetType) {
+      document.getElementById(`point-summary-${pointId}`).textContent = "⚠️ Not linked to dataset";
+      return;
+    }
+
+    try {
+      const url = `/.netlify/functions/dataset-rows?summary=1&customer_id=${encodeURIComponent(appState.currentCustomer)}&dataset_type=${encodeURIComponent(datasetType)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { row_count } = await res.json();
+
+      const el = document.getElementById(`point-summary-${pointId}`);
+      if (el) el.textContent = row_count > 0 ? `📊 ${row_count} records` : "⚠️ No data yet";
+
+      // update total
+      const totalEl = document.getElementById('total-records');
+      if (totalEl) {
+        const existing = parseInt(totalEl.textContent.replace(/\D/g,'')) || 0;
+        totalEl.textContent = (existing + row_count).toLocaleString();
+      }
+    } catch (err) {
+      console.error("fetchPointSummary error", err);
+      const el = document.getElementById(`point-summary-${pointId}`);
+      if (el) el.textContent = "❌ Error loading";
+    }
+  }
+
+  // 3. Keep your existing showPointData
   async showPointData(pointId) {
     try {
       if (!appState.currentCustomer) {
         this.showNotification('❌ Please select a customer first', 'error');
         return;
       }
-
-      // map assessment point -> dataset_type (add more mappings here)
       const datasetMap = {
-        'CHK_RFC_001': 'lmdb_pv' // System Architecture -> LMDB Product Versions
-        // add more mappings: 'CHK_CPU_001': 'cpu_stats', ...
+        'CHK_SYS_001': 'lmdb_pv'
       };
-
       const datasetType = datasetMap[pointId] || 'lmdb_pv';
 
       this.showNotification('📥 Loading data...', 'info');
-
       const url = `/.netlify/functions/dataset-rows?customer_id=${encodeURIComponent(appState.currentCustomer)}&dataset_type=${encodeURIComponent(datasetType)}`;
       const res = await fetch(url, { method: 'GET' });
       if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
 
       const payload = await res.json();
       const rows = payload.rows || [];
-
       if (!rows.length) {
         this.showNotification('⚠️ No uploaded data found for this assessment point', 'warning');
         return;
       }
+
+      // Render a modal table
+      const tableHtml = `
+        <table class="data-table">
+          <thead>
+            <tr>${Object.keys(rows[0]).map(h => `<th>${h}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${rows.slice(0, 20).map(r => `
+              <tr>${Object.values(r).map(v => `<td>${v ?? ''}</td>`).join('')}</tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      this.showModal(`Dataset Preview - ${pointId}`, `
+        <div style="max-height:70vh;overflow:auto;">${tableHtml}</div>
+        <div style="margin-top:12px;text-align:right;">
+          <button class="btn btn--outline" onclick="window.sapApp.closeModal()">Close</button>
+        </div>
+      `);
+
+    } catch (err) {
+      console.error("showPointData error", err);
+      this.showNotification("❌ Failed to load dataset", "error");
+    }
+  }
+
 
       // Build a simple table for display (change columns as required)
       const tableHtml = `
@@ -1998,6 +2053,33 @@ viewCustomerDetails(customerId) {
         </div>
       </div>
     `);
+  }
+  async fetchPointSummary(pointId) {
+    if (!appState.currentCustomer) return;
+
+    const datasetMap = {
+      'CHK_RFC_001': 'lmdb_pv'
+      // extend later
+    };
+    const datasetType = datasetMap[pointId];
+    if (!datasetType) return;
+
+    try {
+      const url = `/.netlify/functions/dataset-rows?customer_id=${appState.currentCustomer}&dataset_type=${datasetType}&summary=1`;
+      const res = await fetch(url);
+      const payload = await res.json();
+      const el = document.getElementById(`point-summary-${pointId}`);
+
+      if (payload.summary) {
+        el.textContent = `${payload.summary.row_count || 0} rows • Last: ${new Date(payload.summary.created_at).toLocaleDateString()}`;
+      } else {
+        el.textContent = "No data uploaded yet";
+      }
+    } catch (err) {
+      console.error("fetchPointSummary error", err);
+      const el = document.getElementById(`point-summary-${pointId}`);
+      if (el) el.textContent = "⚠️ Error fetching summary";
+    }
   }
 
   openCategoryDrillDown(categoryId) {
