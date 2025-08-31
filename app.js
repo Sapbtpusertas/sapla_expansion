@@ -1853,14 +1853,24 @@ viewCustomerDetails(customerId) {
 
       console.log("📊 Quick Assessment:", { rows, summary });
 
-      // Show modal with container div for React
-      this.showModal("Quick Assessment Report", `<div id="qa-react-root"></div>`);
+      // Show modal with a dedicated React mount point
+      this.showModal(
+        "Quick Assessment Report",
+        `<div id="qa-react-root" style="padding:20px; min-height:300px;"></div>`
+      );
 
-      // Render React component
+      // React mount point
       const container = document.getElementById("qa-react-root");
+
+      // Use React 18 API safely
       if (!this._qaRoot) {
-        this._qaRoot = ReactDOM.createRoot(container); // ✅ only once
+        this._qaRoot = ReactDOM.createRoot(container);
+      } else {
+        // re-use existing root on re-open
+        this._qaRoot.unmount();
+        this._qaRoot = ReactDOM.createRoot(container);
       }
+
       this._qaRoot.render(
         React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
       );
@@ -2508,22 +2518,20 @@ viewCustomerDetails(customerId) {
 
   // FIXED: Utility Methods
 
-  showModal(title, content) {
-    // Close existing modals first
+  showModal(title, contentHtml) {
+    // Close only the *visible overlay*, but keep React mount stable if needed
     this.closeModal();
-    
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
+
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
     modal.innerHTML = `
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h3>${title}</h3>
-          <button class="modal-close">
-            <span data-lucide="x"></span>
-          </button>
+          <button class="modal-close btn btn--outline" onclick="window.sapApp.closeModal()">✖</button>
         </div>
-        <div class="modal-body">
-          ${content}
+        <div id="modal-body" class="modal-body" style="max-height:75vh; overflow-y:auto;">
+          ${contentHtml}
         </div>
       </div>
     `;
@@ -2531,15 +2539,16 @@ viewCustomerDetails(customerId) {
     document.body.appendChild(modal);
     appState.modalStack.push(modal);
 
-    // Refresh icons after modal content is added
+    // Don’t auto-close, just keep open until user clicks ✖
     setTimeout(() => {
-      if (typeof lucide !== 'undefined') {
+      if (typeof lucide !== "undefined") {
         lucide.createIcons();
       }
     }, 100);
 
-    console.log('Modal opened:', title);
+    console.log("Modal opened:", title);
   }
+
 
   closeModal() {
     if (appState.modalStack.length > 0) {
