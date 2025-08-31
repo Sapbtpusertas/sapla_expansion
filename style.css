@@ -2723,6 +2723,7 @@ body {
 }
 
 /* Container adjustments */
+/* Container adjustments */
 #qa-root > div {
   width: 100%;
   max-width: 1400px; /* wider report card */
@@ -2741,7 +2742,7 @@ body {
 /* Systems by Status full-width card */
 #qa-root .card-sys {
   grid-column: 1 / -1; /* full width */
-  height: 400px; /* bigger for clarity */
+  height: 400px; /* taller for clarity */
 }
 
 /* General card styling */
@@ -2754,14 +2755,16 @@ body {
   flex-direction: column;
 }
 
+/* Card title with gradient text (cross-browser safe) */
 #qa-root .card h4 {
   margin: 0 0 14px 0;
   font-weight: 600;
-background-clip: text; /* standard */
--webkit-background-clip: text; /* Chrome/Safari/Edge */
--webkit-text-fill-color: transparent;
-color: transparent; /* fallback */
-
+  font-size: 16px;
+  background: linear-gradient(90deg, var(--color-primary), var(--dashboard-success));
+  -webkit-background-clip: text; /* Chrome, Safari, Edge */
+  -webkit-text-fill-color: transparent; /* Chrome, Safari, Edge */
+  background-clip: text; /* standard */
+  color: transparent; /* fallback */
 }
 
 /* Action Items list */
@@ -2776,6 +2779,7 @@ color: transparent; /* fallback */
   padding: 8px;
   border-radius: 6px;
   background: var(--color-bg-2);
+  border-left: 4px solid; /* color set inline in JS */
 }
 
 /* Raw Data Card */
@@ -2805,7 +2809,7 @@ color: transparent; /* fallback */
   color: var(--color-primary);
 }
 
-/* Charts */
+/* Charts canvas */
 #qa-root canvas {
   width: 100% !important;
   height: 100% !important;
@@ -2814,7 +2818,7 @@ color: transparent; /* fallback */
 /* Responsive tweaks */
 @media (max-width: 900px) {
   #qa-root .charts-row-top {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* stack on mobile */
   }
 }
 
