@@ -2842,7 +2842,7 @@ async runQuickAssessment() {
   }
 
 
-  }
+
 
   // Build raw data HTML table (returns a DOM node)
   buildRawDataTable(rows, opts = {}) {
