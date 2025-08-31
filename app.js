@@ -2720,8 +2720,14 @@ viewCustomerDetails(customerId) {
 });
 
   function QuickAssessmentDashboard({ rows, summary, app }) {
-    const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = Recharts;
+    const R = window.Recharts;
+    if (!R) {
+      return React.createElement("div", { style: { padding: "20px", color: "red" } },
+        "⚠️ Recharts library not loaded. Please check index.html"
+      );
+    }
 
+    const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = R;
     const colors = {
       "OK": "#10B981",
       "Expiring Soon": "#F59E0B",
