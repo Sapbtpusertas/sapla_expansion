@@ -2603,21 +2603,21 @@ async runQuickAssessment() {
     const container = document.createElement("div");
     container.style.display = "flex";
     container.style.flexDirection = "column";
-    container.style.gap = "20px";
+    container.style.gap = "25px"; // slightly bigger gap
 
     // helper: make card
     const makeCard = (title) => {
       const card = document.createElement("div");
       card.style.background = "var(--color-bg-1)";
-      card.style.padding = "16px";
+      card.style.padding = "20px"; // slightly bigger padding
       card.style.borderRadius = "12px";
-      card.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
+      card.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
       card.style.display = "flex";
       card.style.flexDirection = "column";
 
       const h = document.createElement("h4");
       h.textContent = title;
-      h.style.margin = "0 0 12px 0";
+      h.style.margin = "0 0 14px 0";
       h.style.fontWeight = "600";
       h.style.background = "linear-gradient(90deg, var(--color-primary), var(--dashboard-success))";
       h.style.webkitBackgroundClip = "text";
@@ -2631,17 +2631,17 @@ async runQuickAssessment() {
     const { card: pieCard } = makeCard("Status Distribution");
     const pieWrapper = document.createElement("div");
     pieWrapper.style.position = "relative";
-    pieWrapper.style.height = "280px";
+    pieWrapper.style.height = "320px"; // bigger height
     const pieCanvas = document.createElement("canvas");
     pieCanvas.id = "qa-piechart-cvs";
     pieWrapper.appendChild(pieCanvas);
     pieCard.appendChild(pieWrapper);
 
-    // --- System Chart (new bar) ---
+    // --- System Chart (bar) ---
     const { card: sysCard } = makeCard("Systems by Status");
     const sysWrapper = document.createElement("div");
     sysWrapper.style.position = "relative";
-    sysWrapper.style.height = "300px";
+    sysWrapper.style.height = "350px"; // bigger height
     const sysCanvas = document.createElement("canvas");
     sysCanvas.id = "qa-syschart-cvs";
     sysWrapper.appendChild(sysCanvas);
@@ -2651,7 +2651,7 @@ async runQuickAssessment() {
     const chartsRow = document.createElement("div");
     chartsRow.style.display = "grid";
     chartsRow.style.gridTemplateColumns = "1fr 1fr";
-    chartsRow.style.gap = "20px";
+    chartsRow.style.gap = "25px"; // more space
     chartsRow.appendChild(pieCard);
     chartsRow.appendChild(sysCard);
 
@@ -2689,7 +2689,7 @@ async runQuickAssessment() {
     });
     actionsCard.appendChild(actionsList);
 
-    // --- Raw Data Collapsible ---
+    // --- Raw Data Collapsible + CSV Download ---
     const rawCard = document.createElement("div");
     rawCard.style.background = "var(--color-bg-1)";
     rawCard.style.padding = "16px";
@@ -2701,9 +2701,12 @@ async runQuickAssessment() {
     rawHeader.style.display = "flex";
     rawHeader.style.justifyContent = "space-between";
     rawHeader.style.alignItems = "center";
+
     const rawTitle = document.createElement("h4");
     rawTitle.textContent = "Raw Data Preview";
     rawHeader.appendChild(rawTitle);
+
+    const rawControls = document.createElement("div");
 
     const rawToggle = document.createElement("button");
     rawToggle.className = "btn btn--outline";
@@ -2711,7 +2714,24 @@ async runQuickAssessment() {
     rawToggle.onclick = () => {
       rawBody.style.display = (rawBody.style.display === "none") ? "block" : "none";
     };
-    rawHeader.appendChild(rawToggle);
+    rawControls.appendChild(rawToggle);
+
+    const downloadBtn = document.createElement("button");
+    downloadBtn.className = "btn btn--primary";
+    downloadBtn.style.marginLeft = "10px";
+    downloadBtn.textContent = "📥 Download CSV";
+    downloadBtn.onclick = () => {
+      const csvContent = this.convertRowsToCSV(rows);
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "quick_assessment.csv");
+      link.click();
+    };
+    rawControls.appendChild(downloadBtn);
+
+    rawHeader.appendChild(rawControls);
 
     const rawBody = document.createElement("div");
     rawBody.id = "qa-rawdata";
@@ -2740,7 +2760,6 @@ async runQuickAssessment() {
       return;
     }
 
-    // cleanup
     this._destroyQuickAssessmentCharts();
     if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
 
@@ -2755,69 +2774,73 @@ async runQuickAssessment() {
     const counts = summary.map(s => s.count);
     const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
 
-  try {
-    // Register plugin safely
-    if (window.Chart && window.ChartDataLabels) {
-      window.Chart.register(window.ChartDataLabels);
+    try {
+      if (window.Chart && window.ChartDataLabels) {
+        window.Chart.register(window.ChartDataLabels);
+      }
+
+      // Pie Chart
+      appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
+        type: "pie",
+        data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
+        options: {
+          plugins: {
+            legend: { position: "bottom" },
+            datalabels: {
+              formatter: (val, ctx) => {
+                const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                return ((val / total) * 100).toFixed(1) + "%";
+              },
+              color: "#fff",
+              font: { weight: "bold", size: 12 }
+            }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+
+      // System Chart (bar)
+      const systems = {};
+      rows.forEach(r => {
+        const sys = r.tech_system_display_name || "Unknown System";
+        if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
+        systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
+      });
+
+      const sysLabels = Object.keys(systems);
+      const sysDatasets = Object.keys(statusColors).map(status => ({
+        label: status,
+        data: sysLabels.map(l => systems[l][status]),
+        backgroundColor: statusColors[status]
+      }));
+
+      const sysChartType = "bar";
+      const sysIndexAxis = sysLabels.length > 10 ? "y" : "x";
+
+      appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
+        type: sysChartType,
+        data: { labels: sysLabels, datasets: sysDatasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom" },
+            datalabels: { display: false } // remove numbers on bars
+          },
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true }
+          },
+          indexAxis: sysIndexAxis
+        }
+      });
+
+    } catch (e) {
+      console.error("Chart build error:", e);
     }
-
-    // --- Pie Chart ---
-    appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
-      type: "pie",
-      data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
-      options: {
-        plugins: {
-          legend: { position: "bottom" },
-          datalabels: {
-            formatter: (val, ctx) => {
-              const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-              return ((val / total) * 100).toFixed(1) + "%";
-            },
-            color: "#fff",
-            font: { weight: "bold", size: 12 }
-          }
-        },
-        responsive: true,
-        maintainAspectRatio: false
-      }
-    });
-
-    // --- System Chart ---
-    const systems = {};
-    rows.forEach(r => {
-      const sys = r.tech_system_display_name || "Unknown System";
-      if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
-      systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
-    });
-
-    const sysLabels = Object.keys(systems);
-    const sysDatasets = Object.keys(statusColors).map(status => ({
-      label: status,
-      data: sysLabels.map(l => systems[l][status]),
-      backgroundColor: statusColors[status]
-    }));
-
-    const sysChartType = sysLabels.length > 10 ? "bar" : "bar"; // always bar
-    const sysIndexAxis = sysLabels.length > 10 ? "y" : "x";     // horizontal if too many
-
-    appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
-      type: sysChartType,
-      data: { labels: sysLabels, datasets: sysDatasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } },
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true }
-        },
-        indexAxis: sysIndexAxis
-      }
-    });
-
-  } catch (e) {
-    console.error("Chart build error:", e);
   }
+
 
   }
 
