@@ -1022,43 +1022,42 @@ renderCustomersSection() {
 
   // 1. Render Analysis Section (safe fallback, no companiesData crash)
   renderAnalysisSection() {
-    console.log("🎯 Rendering Analysis Section");
-
+    console.log('🎯 Rendering Analysis Section');
     const currentCustomer = appState.currentCustomer;
-    const results = document.getElementById("analysis-results");
+    const results = document.getElementById('analysis-results');
 
     if (!currentCustomer) {
-      if (results) results.style.display = "none";
+      if (results) results.style.display = 'none';
       return;
     }
 
-    if (results) results.style.display = "block";
+    if (results) results.style.display = 'block';
 
-    // 🔹 TODO: later wire real analysis data.
-    // For now just render placeholder instead of companiesData
-    const scoreEl = document.getElementById("overall-analysis-score");
-    if (scoreEl) scoreEl.textContent = "—";
+    // 👇 Safeguard: companiesData may not be defined in your new data-driven flow
+    const company = (typeof companiesData !== 'undefined')
+      ? companiesData.find(c => c.id === currentCustomer)
+      : null;
 
-    const breakdown = document.getElementById("category-breakdown");
+    // if we don't have legacy mock data, just render the category list shell
+    const scoreEl = document.getElementById('overall-analysis-score');
+    if (scoreEl) scoreEl.textContent = company?.overallScore ?? '—';
+
+    const breakdown = document.getElementById('category-breakdown');
     if (breakdown) {
-      breakdown.innerHTML = assessmentFramework.categories
-        .map(
-          (category) => `
+      breakdown.innerHTML = assessmentFramework.categories.map(category => {
+        const score = company?.scores?.[category.id] ?? '—';
+        return `
           <div class="breakdown-category" data-category-id="${category.id}">
-            <div class="breakdown-icon">
-              <span data-lucide="${category.icon}"></span>
-            </div>
+            <div class="breakdown-icon"><span data-lucide="${category.icon}"></span></div>
             <div class="breakdown-name">${category.name}</div>
-            <div class="breakdown-score">—</div>
+            <div class="breakdown-score">${score}%</div>
             <div class="breakdown-weight">Weight: ${category.weight}%</div>
           </div>
-        `
-        )
-        .join("");
+        `;
+      }).join('');
     }
-
-    console.log("Analysis breakdown rendered (placeholder mode)");
   }
+
 
 
   // Build raw data preview table for Quick Assessment
@@ -1828,68 +1827,72 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-  // 2. Run Quick Assessment (with cached React root)
-  async runQuickAssessment() {
-    try {
-      if (!appState.currentCustomer) {
-        this.showNotification("❌ Please select a customer first", "error");
-        return;
-      }
-
-      this.showNotification("⏳ Running quick assessment...", "info");
-
-      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(
-        appState.currentCustomer
-      )}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
-      const payload = await res.json();
-      const rows = payload.rows || [];
-      const summary = payload.summary || [];
-
-      if (!rows.length) {
-        this.showNotification("⚠️ No data available for Quick Assessment", "warning");
-        return;
-      }
-
-      console.log("📊 Quick Assessment:", { rows, summary });
-
-      // Cache rows for CSV export
-      this._lastQuickAssessmentRows = rows;
-
-      // 🔹 Open modal ONCE with React mount point
-      this.showModal(
-        "Quick Assessment Report",
-        `<div id="qa-react-root" style="padding:20px; min-height:300px;"></div>`
-      );
-
-      // 🔹 Render React dashboard
-      setTimeout(() => {
-        const rootEl = document.getElementById("qa-react-root");
-        if (!rootEl) return;
-
-        // ⚛️ React 18: use createRoot once and reuse
-        if (!window._qaReactRoot) {
-          if (window.ReactDOM?.createRoot) {
-            console.log("⚛️ Using React 18 createRoot");
-            window._qaReactRoot = window.ReactDOM.createRoot(rootEl);
-          } else {
-            console.log("⚛️ Using ReactDOM.render fallback");
-            window._qaReactRoot = {
-              render: (comp) => window.ReactDOM.render(comp, rootEl)
-            };
-          }
-        }
-
-        window._qaReactRoot.render(
-          window.React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
-        );
-      }, 50);
-    } catch (err) {
-      console.error("Quick assessment failed", err);
-      this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
+async runQuickAssessment() {
+  try {
+    if (!appState.currentCustomer) {
+      this.showNotification("❌ Please select a customer first", "error");
+      return;
     }
+
+    this.showNotification("⏳ Running quick assessment...", "info");
+
+    const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+    const payload = await res.json();
+    const rows = payload.rows || [];
+    const summary = payload.summary || [];
+
+    if (!rows.length) {
+      this.showNotification("⚠️ No data available for Quick Assessment", "warning");
+      return;
+    }
+
+    console.log("📊 Quick Assessment:", { rows, summary });
+
+    // cache for CSV
+    this._lastQuickAssessmentRows = rows;
+
+    // open modal with mount point
+    this.showModal(
+      "Quick Assessment Report",
+      `<div id="qa-react-root" style="padding:20px; min-height:320px;">Loading dashboard…</div>`
+    );
+
+    // 🔹 Mount React (handle new container every time)
+    setTimeout(() => {
+      const rootEl = document.getElementById("qa-react-root");
+      if (!rootEl) return;
+
+      // If a previous root exists but points to a different container, unmount it
+      if (window._qaReactRoot && window._qaReactRootContainerEl !== rootEl) {
+        try { window._qaReactRoot.unmount?.(); } catch {}
+        window._qaReactRoot = null;
+        window._qaReactRootContainerEl = null;
+      }
+
+      // Create root if needed (React 18) or build a small wrapper for legacy render
+      if (!window._qaReactRoot) {
+        if (window.ReactDOM?.createRoot) {
+          console.log("⚛️ Using React 18 createRoot");
+          window._qaReactRoot = window.ReactDOM.createRoot(rootEl);
+        } else {
+          console.log("⚛️ Using ReactDOM.render fallback");
+          window._qaReactRoot = { render: (c) => window.ReactDOM.render(c, rootEl), unmount: () => {} };
+        }
+        window._qaReactRootContainerEl = rootEl;
+      }
+
+      window._qaReactRoot.render(
+        window.React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
+      );
+    }, 40);
+
+  } catch (err) {
+    console.error("Quick assessment failed", err);
+    this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
+  }
 }
 
 
@@ -2573,14 +2576,20 @@ viewCustomerDetails(customerId) {
 
 
   closeModal() {
-    if (appState.modalStack.length > 0) {
-      const modal = appState.modalStack.pop();
-      if (modal && modal.parentNode) {
-        modal.parentNode.removeChild(modal);
-        console.log('Modal closed');
+    const modal = appState.modalStack.pop();
+    if (modal) {
+      // if this modal hosts the QA React root, unmount it
+      const hasQARoot = modal.querySelector('#qa-react-root');
+      if (hasQARoot && window._qaReactRoot) {
+        try { window._qaReactRoot.unmount?.(); } catch {}
+        window._qaReactRoot = null;
+        window._qaReactRootContainerEl = null;
       }
+      modal.remove();
+      console.log('Modal closed');
     }
   }
+
 
   generateScoreTrendData(currentScore) {
     const trend = [];
@@ -2736,17 +2745,10 @@ viewCustomerDetails(customerId) {
 });
 
 function QuickAssessmentDashboard({ rows, summary, app }) {
-  const R = window.Recharts;
-  if (!R) {
-    return React.createElement("div", { style: { padding: "20px", color: "red" } },
-      "⚠️ Recharts library not loaded. Please check index.html"
-    );
-  }
-
-  const {
-    PieChart, Pie, Cell, BarChart, Bar,
-    XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
-  } = R;
+  // Basic derived info
+  const total = summary.reduce((s, x) => s + (x.count || 0), 0);
+  const byStatus = Object.fromEntries(summary.map(s => [s.status, s.count]));
+  const statusOrder = ['OK', 'Expiring Soon', 'Expired', 'Unknown'];
 
   const colors = {
     "OK": "#10B981",
@@ -2757,134 +2759,118 @@ function QuickAssessmentDashboard({ rows, summary, app }) {
 
   // Action items
   const actions = [];
-  const expiringSoon = summary.find(s => s.status === "Expiring Soon");
-  const expired = summary.find(s => s.status === "Expired");
-  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
-  if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
-  if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
+  if ((byStatus['Expired'] || 0) > 0)   actions.push(`⚠️ ${byStatus['Expired']} product(s) already expired — prioritize remediation.`);
+  if ((byStatus['Expiring Soon'] || 0) > 0) actions.push(`⏳ ${byStatus['Expiring Soon']} product(s) expiring soon — plan upgrades/migrations.`);
+  if (actions.length === 0) actions.push("✅ All systems healthy. No urgent items.");
 
-  // --- Tab State (Dashboard vs Raw Data)
-  const [tab, setTab] = React.useState("dashboard");
+  // Minimal shell
+  const container = document.createElement('div');
 
-  // --- Raw data table helper
-  const rawDataTable = app.buildRawDataTable(rows);
+  // Summary cards (always render)
+  container.innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:16px;">
+      ${statusOrder.map(st => `
+        <div style="padding:14px; background:var(--color-bg-1); border-radius:12px;">
+          <div style="font-size:12px; color:var(--color-text-secondary);">${st}</div>
+          <div style="font-weight:800; font-size:28px; color:${colors[st]};">${byStatus[st] ?? 0}</div>
+        </div>
+      `).join('')}
+      <div style="padding:14px; background:var(--color-bg-1); border-radius:12px;">
+        <div style="font-size:12px; color:var(--color-text-secondary);">Total</div>
+        <div style="font-weight:800; font-size:28px; color:var(--color-primary);">${total}</div>
+      </div>
+    </div>
 
-  return React.createElement("div", { style: { padding: "20px", minHeight: "100%", overflowY: "auto" } },
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div id="qa-chart-pie" style="background:var(--color-bg-1); border-radius:12px; padding:12px; min-height:260px;">
+        <h4 style="margin:0 0 8px 0;">Status Distribution</h4>
+        <div id="qa-chart-pie-mount" style="height:220px;"></div>
+      </div>
+      <div id="qa-chart-bar" style="background:var(--color-bg-1); border-radius:12px; padding:12px; min-height:260px;">
+        <h4 style="margin:0 0 8px 0;">Products by Status</h4>
+        <div id="qa-chart-bar-mount" style="height:220px;"></div>
+      </div>
+    </div>
 
-    // --- Tabs
-    React.createElement("div", {
-      style: {
-        display: "flex", borderBottom: "1px solid var(--color-border)",
-        marginBottom: "20px"
-      }
-    },
-      ["dashboard", "raw"].map(key =>
-        React.createElement("div", {
-          key,
-          onClick: () => setTab(key),
-          style: {
-            padding: "10px 20px",
-            cursor: "pointer",
-            borderBottom: tab === key ? "3px solid var(--color-primary)" : "3px solid transparent",
-            color: tab === key ? "var(--color-primary)" : "var(--color-text-secondary)",
-            fontWeight: tab === key ? "600" : "400"
-          }
-        }, key === "dashboard" ? "📊 Dashboard" : "📂 Raw Data")
-      )
-    ),
+    <div style="margin-top:20px;">
+      <h4 style="margin:0 0 8px 0;">Action Items</h4>
+      <ul style="margin:0; padding-left:18px;">
+        ${actions.map(a => `<li style="margin:6px 0;">${a}</li>`).join('')}
+      </ul>
+    </div>
 
-    // --- Dashboard view
-    tab === "dashboard" && React.createElement("div", null,
+    <div style="margin-top:20px; text-align:right;">
+      <button class="btn btn--outline" id="qa-toggle-raw">📂 Toggle Raw Data</button>
+      <button class="btn btn--primary" id="qa-export" style="margin-left:8px;">⬇️ Export CSV</button>
+    </div>
 
-      // Charts row
-      React.createElement("div", {
-        style: {
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "24px",
-          marginBottom: "24px"
-        }
-      },
-        // Pie chart
-        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "16px" } },
-          React.createElement("h4", { style: { marginBottom: "8px" } }, "Status Distribution"),
-          React.createElement(ResponsiveContainer, { width: "100%", height: 240 },
-            React.createElement(PieChart, null,
-              React.createElement(Pie, {
-                data: summary,
-                dataKey: "count",
-                nameKey: "status",
-                cx: "50%",
-                cy: "50%",
-                outerRadius: 80,
-                label: true
-              },
-                summary.map((entry, idx) =>
-                  React.createElement(Cell, { key: idx, fill: colors[entry.status] || "#8884d8" })
-                )
-              ),
-              React.createElement(Tooltip, null),
-              React.createElement(Legend, { verticalAlign: "bottom" })
-            )
-          )
-        ),
-        // Bar chart
-        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "16px" } },
-          React.createElement("h4", { style: { marginBottom: "8px" } }, "Products by Status"),
-          React.createElement(ResponsiveContainer, { width: "100%", height: 240 },
-            React.createElement(BarChart, { data: summary },
-              React.createElement(CartesianGrid, { strokeDasharray: "3 3" }),
-              React.createElement(XAxis, { dataKey: "status" }),
-              React.createElement(YAxis, null),
-              React.createElement(Tooltip, null),
-              React.createElement(Bar, { dataKey: "count", fill: "#3B82F6", radius: [6, 6, 0, 0] })
-            )
-          )
+    <div id="qa-rawdata" style="display:none; margin-top:12px;"></div>
+  `;
+
+  // Wire buttons
+  setTimeout(() => {
+    const toggle = container.querySelector('#qa-toggle-raw');
+    const raw = container.querySelector('#qa-rawdata');
+    const exp = container.querySelector('#qa-export');
+    if (toggle && raw) {
+      toggle.addEventListener('click', () => {
+        raw.style.display = (raw.style.display === 'none' || !raw.style.display) ? 'block' : 'none';
+      });
+    }
+    if (exp) exp.addEventListener('click', () => app.exportQuickAssessmentCSV());
+
+    // Render raw table HTML
+    if (raw) {
+      raw.innerHTML = app.buildRawDataTable(rows);
+    }
+
+    // Charts (only if Recharts is present)
+    const R = window.Recharts;
+    if (R && container.querySelector('#qa-chart-pie-mount')) {
+      const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = R;
+
+      // Mount pie
+      const pieMount = container.querySelector('#qa-chart-pie-mount');
+      const pieRoot = (window.ReactDOM.createRoot) ? window.ReactDOM.createRoot(pieMount) : null;
+      const pieEl = window.React.createElement(R.ResponsiveContainer, { width: "100%", height: "100%" },
+        window.React.createElement(PieChart, null,
+          window.React.createElement(Pie, {
+            data: summary,
+            dataKey: "count",
+            nameKey: "status",
+            cx: "50%", cy: "50%",
+            outerRadius: 80, label: true
+          }, summary.map((s, i) => window.React.createElement(Cell, { key: i, fill: colors[s.status] || "#8884d8" }))),
+          window.React.createElement(Legend, { verticalAlign: "bottom" })
         )
-      ),
+      );
+      pieRoot ? pieRoot.render(pieEl) : window.ReactDOM.render(pieEl, pieMount);
 
-      // Action items section
-      React.createElement("div", {
-        style: {
-          marginTop: "24px",
-          padding: "16px",
-          background: "var(--color-bg-1)",
-          borderRadius: "12px"
-        }
-      },
-        React.createElement("h4", { style: { marginBottom: "12px" } }, "Action Items"),
-        React.createElement("ul", null,
-          actions.map((a, i) =>
-            React.createElement("li", {
-              key: i,
-              style: {
-                marginBottom: "8px",
-                padding: "8px 12px",
-                borderRadius: "8px",
-                background: a.startsWith("⚠️") ? "#FEF2F2" :
-                           a.startsWith("⏳") ? "#FFFBEB" :
-                           "#ECFDF5",
-                color: a.startsWith("⚠️") ? "#B91C1C" :
-                       a.startsWith("⏳") ? "#92400E" :
-                       "#065F46",
-                fontWeight: "500"
-              }
-            }, a)
-          )
+      // Mount bar
+      const barMount = container.querySelector('#qa-chart-bar-mount');
+      const barRoot = (window.ReactDOM.createRoot) ? window.ReactDOM.createRoot(barMount) : null;
+      const barEl = window.React.createElement(R.ResponsiveContainer, { width: "100%", height: "100%" },
+        window.React.createElement(BarChart, { data: summary },
+          window.React.createElement(XAxis, { dataKey: "status" }),
+          window.React.createElement(YAxis, null),
+          window.React.createElement(Tooltip, null),
+          window.React.createElement(Bar, { dataKey: "count", fill: "#3B82F6" })
         )
-      )
-    ),
+      );
+      barRoot ? barRoot.render(barEl) : window.ReactDOM.render(barEl, barMount);
+    } else {
+      // graceful fallback text
+      const pieMount = container.querySelector('#qa-chart-pie-mount');
+      const barMount = container.querySelector('#qa-chart-bar-mount');
+      if (pieMount) pieMount.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);">Charts unavailable</div>`;
+      if (barMount) barMount.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);">Charts unavailable</div>`;
+    }
+  }, 0);
 
-    // --- Raw Data view
-    tab === "raw" && React.createElement("div", null,
-      rawDataTable,
-      React.createElement("div", { style: { marginTop: "16px", textAlign: "right" } },
-        React.createElement("button", {
-          className: "btn btn--primary",
-          onClick: () => app.exportQuickAssessmentCSV()
-        }, "⬇️ Download CSV")
-      )
-    )
-  );
+  // Return a React element that hosts our plain DOM container
+  // (Use a simple host div and attach our built HTML)
+  return window.React.createElement('div', {
+    ref: (el) => { if (el && !el.firstChild) el.appendChild(container); }
+  });
 }
 
