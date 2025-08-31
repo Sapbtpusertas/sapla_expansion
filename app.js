@@ -2589,7 +2589,7 @@ async runQuickAssessment() {
     }
   }
 
-  // Main plain DOM renderer (uses Chart.js)
+    // Main plain DOM renderer (uses Chart.js)
   renderQuickAssessmentPlain(rows, summary) {
     const root = document.getElementById("qa-root");
     if (!root) {
@@ -2600,122 +2600,127 @@ async runQuickAssessment() {
     // clear previous
     root.innerHTML = "";
 
-    // Setup container
+    // container
     const container = document.createElement("div");
     container.style.display = "flex";
     container.style.flexDirection = "column";
-    container.style.gap = "18px";
+    container.style.gap = "20px";
 
-    // Cards + Charts row
+    // charts grid
     const chartsRow = document.createElement("div");
     chartsRow.style.display = "grid";
     chartsRow.style.gridTemplateColumns = "1fr 1fr";
     chartsRow.style.gap = "20px";
-    chartsRow.style.alignItems = "stretch";
 
-    // Pie card
-    const pieCard = document.createElement("div");
-    pieCard.style.background = "var(--color-bg-1)";
-    pieCard.style.padding = "14px";
-    pieCard.style.borderRadius = "12px";
-    pieCard.style.minHeight = "220px";
-    pieCard.style.display = "flex";
-    pieCard.style.flexDirection = "column";
+    // helper: create card
+    const makeCard = (title) => {
+      const card = document.createElement("div");
+      card.style.background = "var(--color-bg-1)";
+      card.style.padding = "16px";
+      card.style.borderRadius = "12px";
+      card.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
+      card.style.display = "flex";
+      card.style.flexDirection = "column";
 
-    const pieTitle = document.createElement("h4");
-    pieTitle.textContent = "Status Distribution";
-    pieTitle.style.margin = "0 0 8px 0";
-    pieCard.appendChild(pieTitle);
+      const h = document.createElement("h4");
+      h.textContent = title;
+      h.style.margin = "0 0 12px 0";
+      h.style.fontWeight = "600";
+      h.style.background = "linear-gradient(90deg, var(--color-primary), var(--dashboard-success))";
+      h.style.webkitBackgroundClip = "text";
+      h.style.webkitTextFillColor = "transparent";
 
+      card.appendChild(h);
+      return { card, body: card };
+    };
+
+    // pie card
+    const { card: pieCard } = makeCard("Status Distribution");
+    const pieWrapper = document.createElement("div");
+    pieWrapper.style.position = "relative";
+    pieWrapper.style.height = "260px";
     const pieCanvas = document.createElement("canvas");
     pieCanvas.id = "qa-piechart-cvs";
     pieCanvas.style.width = "100%";
-    pieCanvas.style.height = "220px";
-    pieCard.appendChild(pieCanvas);
+    pieCanvas.style.height = "100%";
+    pieWrapper.appendChild(pieCanvas);
+    pieCard.appendChild(pieWrapper);
 
-    // Bar card
-    const barCard = document.createElement("div");
-    barCard.style.background = "var(--color-bg-1)";
-    barCard.style.padding = "14px";
-    barCard.style.borderRadius = "12px";
-    barCard.style.minHeight = "220px";
-    barCard.style.display = "flex";
-    barCard.style.flexDirection = "column";
-
-    const barTitle = document.createElement("h4");
-    barTitle.textContent = "Products by Status";
-    barTitle.style.margin = "0 0 8px 0";
-    barCard.appendChild(barTitle);
-
+    // bar card
+    const { card: barCard } = makeCard("Products by Status");
+    const barWrapper = document.createElement("div");
+    barWrapper.style.position = "relative";
+    barWrapper.style.height = "260px";
     const barCanvas = document.createElement("canvas");
     barCanvas.id = "qa-barchart-cvs";
     barCanvas.style.width = "100%";
-    barCanvas.style.height = "220px";
-    barCard.appendChild(barCanvas);
+    barCanvas.style.height = "100%";
+    barWrapper.appendChild(barCanvas);
+    barCard.appendChild(barWrapper);
 
     chartsRow.appendChild(pieCard);
     chartsRow.appendChild(barCard);
 
-    // Actions & export row
-    const actionsRow = document.createElement("div");
-    actionsRow.style.display = "flex";
-    actionsRow.style.justifyContent = "space-between";
-    actionsRow.style.alignItems = "center";
-    actionsRow.style.gap = "12px";
+    // --- action items ---
+    const actionsCard = document.createElement("div");
+    actionsCard.style.background = "var(--color-bg-1)";
+    actionsCard.style.padding = "16px";
+    actionsCard.style.borderRadius = "12px";
+    actionsCard.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
 
-    const actionsLeft = document.createElement("div");
     const actionsTitle = document.createElement("h4");
     actionsTitle.textContent = "Action Items";
-    actionsLeft.appendChild(actionsTitle);
+    actionsTitle.style.margin = "0 0 12px 0";
+    actionsCard.appendChild(actionsTitle);
 
-    // build list of dynamic actions
     const actionsList = document.createElement("ul");
-    actionsList.style.marginTop = "8px";
-    actionsList.style.marginBottom = "0";
+    actionsList.style.listStyle = "none";
+    actionsList.style.padding = "0";
 
-    const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+    const expSoon = summary.find(s => s.status === "Expiring Soon");
     const expired = summary.find(s => s.status === "Expired");
     const items = [];
-    if (expired?.count > 0) items.push(`⚠️ ${expired.count} product(s) already expired. Immediate action required.`);
-    if (expiringSoon?.count > 0) items.push(`⏳ ${expiringSoon.count} product(s) expiring soon. Plan upgrade or migration.`);
-    if (items.length === 0) items.push("✅ All systems are up-to-date. No urgent action items.");
+    if (expired?.count > 0) items.push({ txt: `⚠️ ${expired.count} product(s) expired. Immediate action required.`, color: "#EF4444" });
+    if (expSoon?.count > 0) items.push({ txt: `⏳ ${expSoon.count} product(s) expiring soon. Plan upgrade/migration.`, color: "#F59E0B" });
+    if (items.length === 0) items.push({ txt: "✅ All systems up-to-date. No urgent items.", color: "#10B981" });
 
     items.forEach(it => {
       const li = document.createElement("li");
-      li.textContent = it;
-      li.style.marginBottom = "6px";
+      li.textContent = it.txt;
+      li.style.marginBottom = "8px";
+      li.style.padding = "8px";
+      li.style.borderLeft = `4px solid ${it.color}`;
+      li.style.background = "var(--color-bg-2)";
+      li.style.borderRadius = "6px";
       actionsList.appendChild(li);
     });
-    actionsLeft.appendChild(actionsList);
+    actionsCard.appendChild(actionsList);
 
-    const actionsRight = document.createElement("div");
-    actionsRight.style.display = "flex";
-    actionsRight.style.alignItems = "center";
-    actionsRight.style.gap = "10px";
+    // --- buttons ---
+    const btnRow = document.createElement("div");
+    btnRow.style.display = "flex";
+    btnRow.style.justifyContent = "flex-end";
+    btnRow.style.gap = "10px";
+    btnRow.style.marginTop = "12px";
 
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "btn btn--outline";
     toggleBtn.textContent = "📂 Toggle Raw Data";
     toggleBtn.onclick = () => {
       const el = document.getElementById("qa-rawdata");
-      if (!el) return;
-      el.style.display = (el.style.display === "none") ? "block" : "none";
+      if (el) el.style.display = (el.style.display === "none") ? "block" : "none";
     };
 
     const exportBtn = document.createElement("button");
     exportBtn.className = "btn btn--primary";
     exportBtn.textContent = "⬇️ Export CSV";
-    exportBtn.onclick = () => {
-      this.exportQuickAssessmentCSV();
-    };
+    exportBtn.onclick = () => this.exportQuickAssessmentCSV();
 
-    actionsRight.appendChild(toggleBtn);
-    actionsRight.appendChild(exportBtn);
+    btnRow.appendChild(toggleBtn);
+    btnRow.appendChild(exportBtn);
+    actionsCard.appendChild(btnRow);
 
-    actionsRow.appendChild(actionsLeft);
-    actionsRow.appendChild(actionsRight);
-
-    // Raw data section (hidden initially)
+    // --- raw data ---
     const rawContainer = document.createElement("div");
     rawContainer.id = "qa-rawdata";
     rawContainer.style.display = "none";
@@ -2725,29 +2730,26 @@ async runQuickAssessment() {
     rawContainer.style.maxHeight = "40vh";
     rawContainer.style.overflow = "auto";
     rawContainer.style.marginTop = "10px";
-
-    // Build raw data table (first 200 rows preview)
     rawContainer.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
 
-    // append everything
+    // assemble
     container.appendChild(chartsRow);
-    container.appendChild(actionsRow);
+    container.appendChild(actionsCard);
     container.appendChild(rawContainer);
     root.appendChild(container);
 
-    // build charts (Chart.js)
+    // build charts
     const Chart = window.Chart;
     if (!Chart) {
-      const errMsg = document.createElement("div");
-      errMsg.style.color = "red";
-      errMsg.textContent = "Chart.js not loaded. Please include Chart.js in index.html.";
-      root.appendChild(errMsg);
+      root.appendChild(Object.assign(document.createElement("div"), {
+        style: "color:red",
+        textContent: "Chart.js not loaded. Please include Chart.js in index.html."
+      }));
       return;
     }
 
-    // destroy previous chart instances cleanly
+    // cleanup old
     this._destroyQuickAssessmentCharts();
-
     if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
 
     const statusColors = {
@@ -2756,47 +2758,37 @@ async runQuickAssessment() {
       "Expired": "#EF4444",
       "Unknown": "#9CA3AF"
     };
-
     const labels = summary.map(s => s.status);
     const counts = summary.map(s => s.count);
     const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
 
     try {
-      const pieCtx = pieCanvas.getContext("2d");
-      appState.quickAssessmentCharts.pie = new Chart(pieCtx, {
+      appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
         type: "pie",
-        data: {
-          labels,
-          datasets: [{ data: counts, backgroundColor: bgColors }]
-        },
+        data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
         options: {
           plugins: { legend: { position: "bottom" } },
           responsive: true,
-          maintainAspectRatio: false
+          maintainAspectRatio: false,
+          animation: { animateScale: true, duration: 700 }
         }
       });
 
-      const barCtx = barCanvas.getContext("2d");
-      appState.quickAssessmentCharts.bar = new Chart(barCtx, {
+      appState.quickAssessmentCharts.bar = new Chart(barCanvas.getContext("2d"), {
         type: "bar",
-        data: {
-          labels,
-          datasets: [{
-            label: "Products by Status",
-            data: counts,
-            backgroundColor: bgColors
-          }]
-        },
+        data: { labels, datasets: [{ label: "Products by Status", data: counts, backgroundColor: bgColors }] },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { beginAtZero: true } }
+          scales: { y: { beginAtZero: true } },
+          animation: { duration: 700 }
         }
       });
     } catch (e) {
       console.error("Chart build error:", e);
     }
   }
+
 
   // Build raw data HTML table (returns a DOM node)
   buildRawDataTable(rows, opts = {}) {
