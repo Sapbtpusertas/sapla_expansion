@@ -2755,60 +2755,70 @@ async runQuickAssessment() {
     const counts = summary.map(s => s.count);
     const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
 
-    try {
-      // Pie Chart with percentages
-      appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
-        type: "pie",
-        data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
-        options: {
-          plugins: {
-            legend: { position: "bottom" },
-            datalabels: {
-              formatter: (val, ctx) => {
-                let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                let pct = ((val / total) * 100).toFixed(1) + "%";
-                return pct;
-              },
-              color: "#fff",
-              font: { weight: "bold" }
-            }
-          },
-          responsive: true,
-          maintainAspectRatio: false
-        },
-        plugins: [window.ChartDataLabels]
-      });
-
-      // Aggregate by system (status counts per SID)
-      const systems = {};
-      rows.forEach(r => {
-        const sys = r.tech_system_display_name || "Unknown";
-        if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
-        systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
-      });
-
-      const sysLabels = Object.keys(systems);
-      const sysDatasets = Object.keys(statusColors).map(status => ({
-        label: status,
-        data: sysLabels.map(l => systems[l][status]),
-        backgroundColor: statusColors[status]
-      }));
-
-      appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
-        type: "bar",
-        data: { labels: sysLabels, datasets: sysDatasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: "bottom" } },
-          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
-        }
-      });
-
-    } catch (e) {
-      console.error("Chart build error:", e);
+  try {
+    // Register plugin safely
+    if (window.Chart && window.ChartDataLabels) {
+      window.Chart.register(window.ChartDataLabels);
     }
+
+    // --- Pie Chart ---
+    appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
+      type: "pie",
+      data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
+      options: {
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: {
+            formatter: (val, ctx) => {
+              const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+              return ((val / total) * 100).toFixed(1) + "%";
+            },
+            color: "#fff",
+            font: { weight: "bold", size: 12 }
+          }
+        },
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+
+    // --- System Chart ---
+    const systems = {};
+    rows.forEach(r => {
+      const sys = r.tech_system_display_name || "Unknown System";
+      if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
+      systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
+    });
+
+    const sysLabels = Object.keys(systems);
+    const sysDatasets = Object.keys(statusColors).map(status => ({
+      label: status,
+      data: sysLabels.map(l => systems[l][status]),
+      backgroundColor: statusColors[status]
+    }));
+
+    const sysChartType = sysLabels.length > 10 ? "bar" : "bar"; // always bar
+    const sysIndexAxis = sysLabels.length > 10 ? "y" : "x";     // horizontal if too many
+
+    appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
+      type: sysChartType,
+      data: { labels: sysLabels, datasets: sysDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true }
+        },
+        indexAxis: sysIndexAxis
+      }
+    });
+
+  } catch (e) {
+    console.error("Chart build error:", e);
   }
+
 
   // Build raw data HTML table (returns a DOM node)
   buildRawDataTable(rows, opts = {}) {
