@@ -1842,10 +1842,11 @@ viewCustomerDetails(customerId) {
       const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const payload = await res.json();
 
+      const payload = await res.json();
       const rows = payload.rows || [];
       const summary = payload.summary || [];
+
       if (!rows.length) {
         this.showNotification("⚠️ No data available for Quick Assessment", "warning");
         return;
@@ -1853,33 +1854,35 @@ viewCustomerDetails(customerId) {
 
       console.log("📊 Quick Assessment:", { rows, summary });
 
-      // Show modal with a dedicated React mount point
+      // Cache rows for CSV export
+      this._lastQuickAssessmentRows = rows;
+
+      // 🔹 Open modal ONCE with a React mount point
       this.showModal(
         "Quick Assessment Report",
         `<div id="qa-react-root" style="padding:20px; min-height:300px;"></div>`
       );
 
-      // React mount point
-      const container = document.getElementById("qa-react-root");
+      // 🔹 Render React component
+      setTimeout(() => {
+        const rootEl = document.getElementById("qa-react-root");
+        if (!rootEl) return;
 
-      // Use React 18 API safely
-      if (!this._qaRoot) {
-        this._qaRoot = ReactDOM.createRoot(container);
-      } else {
-        // re-use existing root on re-open
-        this._qaRoot.unmount();
-        this._qaRoot = ReactDOM.createRoot(container);
-      }
+        // use React 18 API
+        const { createRoot } = window.ReactDOMClient;
+        const root = createRoot(rootEl);
 
-      this._qaRoot.render(
-        React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
-      );
+        root.render(
+          window.React.createElement(QuickAssessmentDashboard, { rows, summary })
+        );
+      }, 50);
 
     } catch (err) {
       console.error("Quick assessment failed", err);
       this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
     }
   }
+
 
 
 
