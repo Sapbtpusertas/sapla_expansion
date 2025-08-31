@@ -2757,7 +2757,10 @@ body {
 #qa-root .card h4 {
   margin: 0 0 14px 0;
   font-weight: 600;
-  background: linear-gradient(90deg, var(--color-primary), var(--dashboard-success));
+background-clip: text; /* standard */
+-webkit-background-clip: text; /* Chrome/Safari/Edge */
+-webkit-text-fill-color: transparent;
+color: transparent; /* fallback */
 
 }
 
