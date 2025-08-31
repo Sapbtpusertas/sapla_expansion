@@ -2590,236 +2590,191 @@ async runQuickAssessment() {
   }
 
     // Main plain DOM renderer (uses Chart.js)
-  renderQuickAssessmentPlain(rows, summary) {
-    const root = document.getElementById("qa-root");
-    if (!root) {
-      console.warn("qa-root missing");
-      return;
-    }
-
-    root.innerHTML = ""; // clear previous
-
-    // container
-    const container = document.createElement("div");
-    container.style.display = "flex";
-    container.style.flexDirection = "column";
-    container.style.gap = "25px"; // slightly bigger gap
-
-    // helper: make card
-    const makeCard = (title) => {
-      const card = document.createElement("div");
-      card.style.background = "var(--color-bg-1)";
-      card.style.padding = "20px"; // slightly bigger padding
-      card.style.borderRadius = "12px";
-      card.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-      card.style.display = "flex";
-      card.style.flexDirection = "column";
-
-      const h = document.createElement("h4");
-      h.textContent = title;
-      h.style.margin = "0 0 14px 0";
-      h.style.fontWeight = "600";
-      h.style.background = "linear-gradient(90deg, var(--color-primary), var(--dashboard-success))";
-      h.style.webkitBackgroundClip = "text";
-      h.style.webkitTextFillColor = "transparent";
-
-      card.appendChild(h);
-      return { card, body: card };
-    };
-
-    // --- Status Distribution Pie Chart ---
-    const { card: pieCard } = makeCard("Status Distribution");
-    const pieWrapper = document.createElement("div");
-    pieWrapper.style.position = "relative";
-    pieWrapper.style.height = "320px";
-    const pieCanvas = document.createElement("canvas");
-    pieCanvas.id = "qa-piechart-cvs";
-    pieWrapper.appendChild(pieCanvas);
-    pieCard.appendChild(pieWrapper);
-
-    // --- Action Items Card ---
-    const { card: actionsCard } = makeCard("Action Items");
-    const actionsList = document.createElement("ul");
-    actionsList.style.listStyle = "none";
-    actionsList.style.padding = "0";
-
-    const expSoon = summary.find(s => s.status === "Expiring Soon");
-    const expired = summary.find(s => s.status === "Expired");
-    const items = [];
-    if (expired?.count > 0) items.push({ txt: `⚠️ ${expired.count} expired system(s). Immediate action required.`, color: "#EF4444" });
-    if (expSoon?.count > 0) items.push({ txt: `⏳ ${expSoon.count} expiring soon. Plan upgrade/migration.`, color: "#F59E0B" });
-    if (items.length === 0) items.push({ txt: "✅ All systems up-to-date. No urgent items.", color: "#10B981" });
-
-    items.forEach(it => {
-      const li = document.createElement("li");
-      li.textContent = it.txt;
-      li.style.margin = "8px 0";
-      li.style.padding = "8px";
-      li.style.borderLeft = `4px solid ${it.color}`;
-      li.style.background = "var(--color-bg-2)";
-      li.style.borderRadius = "6px";
-      actionsList.appendChild(li);
-    });
-    actionsCard.appendChild(actionsList);
-
-    // --- Charts Row: Status Distribution + Action Items side by side ---
-    const topRow = document.createElement("div");
-    topRow.style.display = "grid";
-    topRow.style.gridTemplateColumns = "1fr 1fr";
-    topRow.style.gap = "25px";
-    topRow.appendChild(pieCard);
-    topRow.appendChild(actionsCard);
-    container.appendChild(topRow);
-
-    // --- Systems by Status Chart ---
-    const { card: sysCard } = makeCard("Systems by Status");
-    const sysWrapper = document.createElement("div");
-    sysWrapper.style.position = "relative";
-    sysWrapper.style.height = "350px";
-    const sysCanvas = document.createElement("canvas");
-    sysCanvas.id = "qa-syschart-cvs";
-    sysWrapper.appendChild(sysCanvas);
-    sysCard.appendChild(sysWrapper);
-    container.appendChild(sysCard);
-
-    // --- Raw Data Collapsible + CSV Download ---
-    const rawCard = document.createElement("div");
-    rawCard.style.background = "var(--color-bg-1)";
-    rawCard.style.padding = "16px";
-    rawCard.style.borderRadius = "12px";
-    rawCard.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
-    rawCard.style.marginTop = "10px";
-
-    const rawHeader = document.createElement("div");
-    rawHeader.style.display = "flex";
-    rawHeader.style.justifyContent = "space-between";
-    rawHeader.style.alignItems = "center";
-
-    const rawTitle = document.createElement("h4");
-    rawTitle.textContent = "Raw Data Preview";
-    rawHeader.appendChild(rawTitle);
-
-    const rawControls = document.createElement("div");
-
-    const rawToggle = document.createElement("button");
-    rawToggle.className = "btn btn--outline";
-    rawToggle.textContent = "📂 Toggle";
-    rawToggle.onclick = () => {
-      rawBody.style.display = (rawBody.style.display === "none") ? "block" : "none";
-    };
-    rawControls.appendChild(rawToggle);
-
-    // ✅ Use the existing export function
-    const downloadBtn = document.createElement("button");
-    downloadBtn.className = "btn btn--primary";
-    downloadBtn.style.marginLeft = "10px";
-    downloadBtn.textContent = "📥 Download CSV";
-    downloadBtn.onclick = () => this.exportQuickAssessmentCSV(); // connected here
-    rawControls.appendChild(downloadBtn);
-
-    rawHeader.appendChild(rawControls);
-
-    const rawBody = document.createElement("div");
-    rawBody.id = "qa-rawdata";
-    rawBody.style.display = "none";
-    rawBody.style.maxHeight = "40vh";
-    rawBody.style.overflow = "auto";
-    rawBody.style.marginTop = "12px";
-    rawBody.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
-
-    rawCard.appendChild(rawHeader);
-    rawCard.appendChild(rawBody);
-    container.appendChild(rawCard);
-
-    root.appendChild(container);
-
-    // --- Build Charts ---
-    const Chart = window.Chart;
-    if (!Chart) {
-      root.appendChild(Object.assign(document.createElement("div"), {
-        style: "color:red",
-        textContent: "Chart.js not loaded. Please include Chart.js in index.html."
-      }));
-      return;
-    }
-
-    this._destroyQuickAssessmentCharts();
-    if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
-
-    const statusColors = {
-      "OK": "#10B981",
-      "Expiring Soon": "#F59E0B",
-      "Expired": "#EF4444",
-      "Unknown": "#9CA3AF"
-    };
-
-    const labels = summary.map(s => s.status);
-    const counts = summary.map(s => s.count);
-    const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
-
-    try {
-      if (window.Chart && window.ChartDataLabels) {
-        window.Chart.register(window.ChartDataLabels);
-      }
-
-      // Pie Chart
-      appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
-        type: "pie",
-        data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
-        options: {
-          plugins: {
-            legend: { position: "bottom" },
-            datalabels: {
-              formatter: (val, ctx) => {
-                const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                return ((val / total) * 100).toFixed(1) + "%";
-              },
-              color: "#fff",
-              font: { weight: "bold", size: 12 }
-            }
-          },
-          responsive: true,
-          maintainAspectRatio: false
-        }
-      });
-
-      // System Chart (vertical bar)
-      const systems = {};
-      rows.forEach(r => {
-        const sys = r.tech_system_display_name || "Unknown System";
-        if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
-        systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
-      });
-
-      const sysLabels = Object.keys(systems);
-      const sysDatasets = Object.keys(statusColors).map(status => ({
-        label: status,
-        data: sysLabels.map(l => systems[l][status]),
-        backgroundColor: statusColors[status]
-      }));
-
-      appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
-        type: "bar",
-        data: { labels: sysLabels, datasets: sysDatasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: "bottom" },
-            datalabels: { display: false }
-          },
-          scales: {
-            x: { stacked: true },
-            y: { stacked: true, beginAtZero: true }
-          },
-          indexAxis: 'x' // always vertical bars
-        }
-      });
-
-    } catch (e) {
-      console.error("Chart build error:", e);
-    }
+renderQuickAssessmentPlain(rows, summary) {
+  const root = document.getElementById("qa-root");
+  if (!root) {
+    console.warn("qa-root missing");
+    return;
   }
+
+  root.innerHTML = ""; // clear previous
+
+  // container
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.flexDirection = "column";
+  container.style.gap = "25px";
+
+  // helper: make card
+  const makeCard = (title) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+
+    const h = document.createElement("h4");
+    h.textContent = title;
+    card.appendChild(h);
+
+    return { card, body: card };
+  };
+
+  // --- Status Distribution Pie Chart ---
+  const { card: pieCard } = makeCard("Status Distribution");
+  const pieWrapper = document.createElement("div");
+  pieWrapper.style.position = "relative";
+  pieWrapper.style.height = "320px";
+  const pieCanvas = document.createElement("canvas");
+  pieCanvas.id = "qa-piechart-cvs";
+  pieWrapper.appendChild(pieCanvas);
+  pieCard.appendChild(pieWrapper);
+
+  // --- Action Items Card ---
+  const { card: actionsCard } = makeCard("Action Items");
+  const actionsList = document.createElement("ul");
+
+  const expSoon = summary.find(s => s.status === "Expiring Soon");
+  const expired = summary.find(s => s.status === "Expired");
+  const items = [];
+  if (expired?.count > 0) items.push({ txt: `⚠️ ${expired.count} expired system(s). Immediate action required.`, color: "#EF4444" });
+  if (expSoon?.count > 0) items.push({ txt: `⏳ ${expSoon.count} expiring soon. Plan upgrade/migration.`, color: "#F59E0B" });
+  if (items.length === 0) items.push({ txt: "✅ All systems up-to-date. No urgent items.", color: "#10B981" });
+
+  items.forEach(it => {
+    const li = document.createElement("li");
+    li.textContent = it.txt;
+    li.style.borderLeft = `4px solid ${it.color}`;
+    actionsList.appendChild(li);
+  });
+  actionsCard.appendChild(actionsList);
+
+  // --- Top Row: Status + Action Items ---
+  const topRow = document.createElement("div");
+  topRow.className = "charts-row-top";
+  topRow.appendChild(pieCard);
+  topRow.appendChild(actionsCard);
+  container.appendChild(topRow);
+
+  // --- Systems by Status Chart (full width) ---
+  const { card: sysCard } = makeCard("Systems by Status");
+  sysCard.className += " card-sys";
+  const sysWrapper = document.createElement("div");
+  sysWrapper.style.position = "relative";
+  const sysCanvas = document.createElement("canvas");
+  sysCanvas.id = "qa-syschart-cvs";
+  sysWrapper.appendChild(sysCanvas);
+  sysCard.appendChild(sysWrapper);
+  container.appendChild(sysCard);
+
+  // --- Raw Data Card + CSV Export ---
+  const rawCard = document.createElement("div");
+  rawCard.className = "card";
+  rawCard.style.marginTop = "10px";
+
+  const rawHeader = document.createElement("div");
+  rawHeader.style.display = "flex";
+  rawHeader.style.justifyContent = "space-between";
+  rawHeader.style.alignItems = "center";
+
+  const rawTitle = document.createElement("h4");
+  rawTitle.textContent = "Raw Data Preview";
+  rawHeader.appendChild(rawTitle);
+
+  const rawControls = document.createElement("div");
+  const rawToggle = document.createElement("button");
+  rawToggle.className = "btn btn--outline";
+  rawToggle.textContent = "📂 Toggle";
+  rawToggle.onclick = () => {
+    rawBody.style.display = rawBody.style.display === "none" ? "block" : "none";
+  };
+  rawControls.appendChild(rawToggle);
+
+  const downloadBtn = document.createElement("button");
+  downloadBtn.className = "btn btn--primary";
+  downloadBtn.style.marginLeft = "10px";
+  downloadBtn.textContent = "📥 Download CSV";
+  downloadBtn.onclick = () => this.exportQuickAssessmentCSV(); // linked to your function
+  rawControls.appendChild(downloadBtn);
+
+  rawHeader.appendChild(rawControls);
+
+  const rawBody = document.createElement("div");
+  rawBody.id = "qa-rawdata";
+  rawBody.style.display = "none";
+  rawBody.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
+
+  rawCard.appendChild(rawHeader);
+  rawCard.appendChild(rawBody);
+  container.appendChild(rawCard);
+
+  root.appendChild(container);
+
+  // --- Build Charts ---
+  const Chart = window.Chart;
+  if (!Chart) return;
+
+  this._destroyQuickAssessmentCharts();
+  if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
+
+  const statusColors = {
+    "OK": "#10B981",
+    "Expiring Soon": "#F59E0B",
+    "Expired": "#EF4444",
+    "Unknown": "#9CA3AF"
+  };
+
+  const labels = summary.map(s => s.status);
+  const counts = summary.map(s => s.count);
+  const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
+
+  try {
+    if (window.Chart && window.ChartDataLabels) window.Chart.register(window.ChartDataLabels);
+
+    // Pie Chart
+    appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
+      type: "pie",
+      data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
+      options: {
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: { color: "#fff", font: { weight: "bold", size: 12 } }
+        },
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+
+    // Systems Bar Chart
+    const systems = {};
+    rows.forEach(r => {
+      const sys = r.tech_system_display_name || "Unknown System";
+      if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
+      systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
+    });
+
+    const sysLabels = Object.keys(systems);
+    const sysDatasets = Object.keys(statusColors).map(status => ({
+      label: status,
+      data: sysLabels.map(l => systems[l][status]),
+      backgroundColor: statusColors[status]
+    }));
+
+    appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
+      type: "bar",
+      data: { labels: sysLabels, datasets: sysDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" }, datalabels: { display: false } },
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+        indexAxis: 'x' // vertical bars
+      }
+    });
+
+  } catch (e) {
+    console.error("Chart build error:", e);
+  }
+}
 
 
 
