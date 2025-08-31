@@ -1064,6 +1064,134 @@ renderCustomersSection() {
     }
   }
 
+  // Renders the Quick Assessment dashboard with tabs (Summary / Raw Data)
+  renderQuickAssessmentReport(rows, summary) {
+    const statusColors = {
+      "OK": "var(--dashboard-success)",
+      "Expiring Soon": "var(--dashboard-warning)",
+      "Expired": "var(--dashboard-danger)",
+      "Unknown": "var(--color-text-secondary)"
+    };
+
+    // --- Summary cards ---
+    const summaryHtml = summary.map(s => `
+      <div style="padding:20px; background:var(--color-bg-1); border-radius:16px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+        <div style="font-size:28px; font-weight:700; color:${statusColors[s.status] || 'var(--color-primary)'}">
+          ${s.count}
+        </div>
+        <div style="font-size:13px; margin-top:4px; color:var(--color-text-secondary)">${s.status}</div>
+      </div>
+    `).join('');
+
+    // --- Action items ---
+    let actions = [];
+    const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+    const expired = summary.find(s => s.status === "Expired");
+    if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
+    if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
+    if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
+
+    const actionsHtml = actions.map(a => `<li style="margin-bottom:10px;">${a}</li>`).join('');
+
+    // --- Raw Data ---
+    const tableHeaders = Object.keys(rows[0] || {}).map(h => `<th style="padding:10px; text-align:left; background:var(--color-bg-2);">${h}</th>`).join('');
+    const tableRows = rows.slice(0, 50).map(r => `
+      <tr>
+        ${Object.values(r).map(v => `<td style="padding:8px; border-top:1px solid var(--color-border);">${v ?? ''}</td>`).join('')}
+      </tr>
+    `).join('');
+
+    const rawDataHtml = `
+      <div id="qa-rawdata" style="display:none; margin-top:16px;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr>${tableHeaders}</tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        ${rows.length > 50 ? `<div style="margin-top:8px; font-style:italic; color:var(--color-text-secondary)">Showing 50 of ${rows.length} rows…</div>` : ''}
+        <button class="btn btn--outline" onclick="window.sapApp.exportQuickAssessmentCSV()" style="margin-top:12px;">⬇️ Download CSV</button>
+      </div>
+    `;
+
+    // --- Modal with Tab Switcher ---
+    this.showModal("Quick Assessment Report", `
+      <div style="padding:20px; max-height:75vh; overflow-y:auto;">
+
+        <!-- Tab Controls -->
+        <div style="display:flex; gap:12px; margin-bottom:20px; border-bottom:1px solid var(--color-border);">
+          <button id="qa-tab-summary" class="btn btn--secondary" style="flex:1;" onclick="window.sapApp.switchQATab('summary')">📊 Summary</button>
+          <button id="qa-tab-raw" class="btn btn--outline" style="flex:1;" onclick="window.sapApp.switchQATab('raw')">📂 Raw Data</button>
+        </div>
+
+        <!-- Summary View -->
+        <div id="qa-summary">
+          <h4>Status Summary</h4>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:16px; margin:16px 0;">
+            ${summaryHtml}
+          </div>
+
+          <h4>Action Items</h4>
+          <ul style="margin:16px 0; padding-left:20px;">${actionsHtml}</ul>
+        </div>
+
+        <!-- Raw Data View -->
+        ${rawDataHtml}
+      </div>
+    `);
+
+    // Default: show summary tab
+    this.switchQATab("summary");
+  }
+
+  // Tab switching logic
+  switchQATab(tab) {
+    const summary = document.getElementById("qa-summary");
+    const raw = document.getElementById("qa-rawdata");
+    const btnSummary = document.getElementById("qa-tab-summary");
+    const btnRaw = document.getElementById("qa-tab-raw");
+
+    if (tab === "summary") {
+      summary.style.display = "block";
+      raw.style.display = "none";
+      btnSummary.classList.add("btn--secondary");
+      btnSummary.classList.remove("btn--outline");
+      btnRaw.classList.remove("btn--secondary");
+      btnRaw.classList.add("btn--outline");
+    } else {
+      summary.style.display = "none";
+      raw.style.display = "block";
+      btnRaw.classList.add("btn--secondary");
+      btnRaw.classList.remove("btn--outline");
+      btnSummary.classList.remove("btn--secondary");
+      btnSummary.classList.add("btn--outline");
+    }
+  }
+
+
+  exportQuickAssessmentCSV() {
+    if (!this._lastQuickAssessmentRows) {
+      this.showNotification("⚠️ No data to export", "warning");
+      return;
+    }
+
+    const rows = this._lastQuickAssessmentRows;
+    const headers = Object.keys(rows[0] || {});
+    const csv = [
+      headers.join(","),
+      ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? "")).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "quick_assessment.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+
   renderReportsSection() {
     console.log('🎯 Rendering Reports Section');
     // Reports section is already rendered in HTML
@@ -1636,38 +1764,42 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-async runQuickAssessment() {
-  try {
-    if (!appState.currentCustomer) {
-      this.showNotification("❌ Please select a customer first", "error");
-      return;
+  async runQuickAssessment() {
+    try {
+      if (!appState.currentCustomer) {
+        this.showNotification("❌ Please select a customer first", "error");
+        return;
+      }
+
+      this.showNotification("⏳ Running quick assessment...", "info");
+
+      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const payload = await res.json();
+
+      const rows = payload.rows || [];
+      const summary = payload.summary || [];
+
+      if (!rows.length) {
+        this.showNotification("⚠️ No data available for Quick Assessment", "warning");
+        return;
+      }
+
+      console.log("📊 Quick Assessment:", { rows, summary });
+
+      // ✅ cache rows for CSV export
+      this._lastQuickAssessmentRows = rows;
+
+      // ✅ render beautiful report
+      this.renderQuickAssessmentReport(rows, summary);
+
+    } catch (err) {
+      console.error("Quick assessment failed", err);
+      this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
     }
-
-    const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const payload = await res.json();
-
-    const rows = payload.rows || [];
-    const summary = payload.summary || [];
-
-    if (!rows.length) {
-      this.showNotification("⚠️ No data available for Quick Assessment", "warning");
-      return;
-    }
-
-    console.log("📊 Quick Assessment:", { rows, summary });
-
-    // 👉 Here we’ll add rendering of:
-    // 1. Report View (summary cards + groups)
-    // 2. Raw Data toggle
-    this.renderQuickAssessmentReport(rows, summary);
-
-  } catch (err) {
-    console.error("Quick assessment failed", err);
-    this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
   }
-}
+
 
 
 
