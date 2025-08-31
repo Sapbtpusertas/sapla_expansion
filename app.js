@@ -1063,6 +1063,32 @@ renderCustomersSection() {
       console.log('Analysis breakdown rendered');
     }
   }
+  // Build raw data preview table for Quick Assessment
+  buildRawDataTable(rows) {
+    if (!rows.length) {
+      return `<div id="qa-rawdata" style="display:none; margin-top:16px;">⚠️ No data available</div>`;
+    }
+
+    const headers = Object.keys(rows[0]);
+    const tableHeaders = headers.map(h => `<th style="padding:8px; text-align:left; background:var(--color-bg-2);">${h}</th>`).join('');
+
+    const tableRows = rows.slice(0, 50).map(r => `
+      <tr>
+        ${headers.map(h => `<td style="padding:6px; border-top:1px solid var(--color-border);">${r[h] ?? ''}</td>`).join('')}
+      </tr>
+    `).join('');
+
+    return `
+      <div id="qa-rawdata" style="display:none; margin-top:16px;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead><tr>${tableHeaders}</tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        ${rows.length > 50 ? `<div style="margin-top:8px; font-style:italic;">Showing 50 of ${rows.length} rows…</div>` : ''}
+        <button class="btn btn--outline" style="margin-top:10px;" onclick="window.sapApp.exportQuickAssessmentCSV()">⬇️ Download CSV</button>
+      </div>
+    `;
+}
 
   // Render with charts
   renderQuickAssessmentReport(rows, summary) {
@@ -1204,6 +1230,7 @@ renderCustomersSection() {
       btnSummary.classList.add("btn--outline");
     }
   }
+
 
 
   exportQuickAssessmentCSV() {
