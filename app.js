@@ -1827,6 +1827,7 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
+// Replace your existing runQuickAssessment with this:
 async runQuickAssessment() {
   try {
     if (!appState.currentCustomer) {
@@ -1851,49 +1852,30 @@ async runQuickAssessment() {
 
     console.log("📊 Quick Assessment:", { rows, summary });
 
-    // cache for CSV
-    this._lastQuickAssessmentRows = rows;
+    // cache rows for CSV export
+    appState._lastQuickAssessmentRows = rows;
 
-    // open modal with mount point
+    // open modal (single mount point)
     this.showModal(
       "Quick Assessment Report",
-      `<div id="qa-react-root" style="padding:20px; min-height:320px;">Loading dashboard…</div>`
+      `<div id="qa-root" style="padding:20px; min-height:320px;">Loading dashboard...</div>`
     );
 
-    // 🔹 Mount React (handle new container every time)
+    // render the report after modal is present
     setTimeout(() => {
-      const rootEl = document.getElementById("qa-react-root");
-      if (!rootEl) return;
-
-      // If a previous root exists but points to a different container, unmount it
-      if (window._qaReactRoot && window._qaReactRootContainerEl !== rootEl) {
-        try { window._qaReactRoot.unmount?.(); } catch {}
-        window._qaReactRoot = null;
-        window._qaReactRootContainerEl = null;
+      try {
+        this.renderQuickAssessmentPlain(rows, summary);
+      } catch (e) {
+        console.error("Render failed", e);
+        this.showNotification("❌ Quick assessment render failed", "error");
       }
-
-      // Create root if needed (React 18) or build a small wrapper for legacy render
-      if (!window._qaReactRoot) {
-        if (window.ReactDOM?.createRoot) {
-          console.log("⚛️ Using React 18 createRoot");
-          window._qaReactRoot = window.ReactDOM.createRoot(rootEl);
-        } else {
-          console.log("⚛️ Using ReactDOM.render fallback");
-          window._qaReactRoot = { render: (c) => window.ReactDOM.render(c, rootEl), unmount: () => {} };
-        }
-        window._qaReactRootContainerEl = rootEl;
-      }
-
-      window._qaReactRoot.render(
-        window.React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
-      );
-    }, 40);
-
+    }, 60);
   } catch (err) {
     console.error("Quick assessment failed", err);
     this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
   }
 }
+
 
 
 
@@ -2590,6 +2572,330 @@ async runQuickAssessment() {
     }
   }
 
+  // Helper: destroy previous quick-assessment charts
+  _destroyQuickAssessmentCharts() {
+    if (!appState.quickAssessmentCharts) return;
+    try {
+      if (appState.quickAssessmentCharts.pie) {
+        appState.quickAssessmentCharts.pie.destroy();
+        delete appState.quickAssessmentCharts.pie;
+      }
+      if (appState.quickAssessmentCharts.bar) {
+        appState.quickAssessmentCharts.bar.destroy();
+        delete appState.quickAssessmentCharts.bar;
+      }
+    } catch (e) {
+      console.warn("Could not destroy old charts", e);
+    }
+  }
+
+  // Main plain DOM renderer (uses Chart.js)
+  renderQuickAssessmentPlain(rows, summary) {
+    const root = document.getElementById("qa-root");
+    if (!root) {
+      console.warn("qa-root missing");
+      return;
+    }
+
+    // clear previous
+    root.innerHTML = "";
+
+    // Setup container
+    const container = document.createElement("div");
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.gap = "18px";
+
+    // Cards + Charts row
+    const chartsRow = document.createElement("div");
+    chartsRow.style.display = "grid";
+    chartsRow.style.gridTemplateColumns = "1fr 1fr";
+    chartsRow.style.gap = "20px";
+    chartsRow.style.alignItems = "stretch";
+
+    // Pie card
+    const pieCard = document.createElement("div");
+    pieCard.style.background = "var(--color-bg-1)";
+    pieCard.style.padding = "14px";
+    pieCard.style.borderRadius = "12px";
+    pieCard.style.minHeight = "220px";
+    pieCard.style.display = "flex";
+    pieCard.style.flexDirection = "column";
+
+    const pieTitle = document.createElement("h4");
+    pieTitle.textContent = "Status Distribution";
+    pieTitle.style.margin = "0 0 8px 0";
+    pieCard.appendChild(pieTitle);
+
+    const pieCanvas = document.createElement("canvas");
+    pieCanvas.id = "qa-piechart-cvs";
+    pieCanvas.style.width = "100%";
+    pieCanvas.style.height = "220px";
+    pieCard.appendChild(pieCanvas);
+
+    // Bar card
+    const barCard = document.createElement("div");
+    barCard.style.background = "var(--color-bg-1)";
+    barCard.style.padding = "14px";
+    barCard.style.borderRadius = "12px";
+    barCard.style.minHeight = "220px";
+    barCard.style.display = "flex";
+    barCard.style.flexDirection = "column";
+
+    const barTitle = document.createElement("h4");
+    barTitle.textContent = "Products by Status";
+    barTitle.style.margin = "0 0 8px 0";
+    barCard.appendChild(barTitle);
+
+    const barCanvas = document.createElement("canvas");
+    barCanvas.id = "qa-barchart-cvs";
+    barCanvas.style.width = "100%";
+    barCanvas.style.height = "220px";
+    barCard.appendChild(barCanvas);
+
+    chartsRow.appendChild(pieCard);
+    chartsRow.appendChild(barCard);
+
+    // Actions & export row
+    const actionsRow = document.createElement("div");
+    actionsRow.style.display = "flex";
+    actionsRow.style.justifyContent = "space-between";
+    actionsRow.style.alignItems = "center";
+    actionsRow.style.gap = "12px";
+
+    const actionsLeft = document.createElement("div");
+    const actionsTitle = document.createElement("h4");
+    actionsTitle.textContent = "Action Items";
+    actionsLeft.appendChild(actionsTitle);
+
+    // build list of dynamic actions
+    const actionsList = document.createElement("ul");
+    actionsList.style.marginTop = "8px";
+    actionsList.style.marginBottom = "0";
+
+    const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+    const expired = summary.find(s => s.status === "Expired");
+    const items = [];
+    if (expired?.count > 0) items.push(`⚠️ ${expired.count} product(s) already expired. Immediate action required.`);
+    if (expiringSoon?.count > 0) items.push(`⏳ ${expiringSoon.count} product(s) expiring soon. Plan upgrade or migration.`);
+    if (items.length === 0) items.push("✅ All systems are up-to-date. No urgent action items.");
+
+    items.forEach(it => {
+      const li = document.createElement("li");
+      li.textContent = it;
+      li.style.marginBottom = "6px";
+      actionsList.appendChild(li);
+    });
+    actionsLeft.appendChild(actionsList);
+
+    const actionsRight = document.createElement("div");
+    actionsRight.style.display = "flex";
+    actionsRight.style.alignItems = "center";
+    actionsRight.style.gap = "10px";
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "btn btn--outline";
+    toggleBtn.textContent = "📂 Toggle Raw Data";
+    toggleBtn.onclick = () => {
+      const el = document.getElementById("qa-rawdata");
+      if (!el) return;
+      el.style.display = (el.style.display === "none") ? "block" : "none";
+    };
+
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "btn btn--primary";
+    exportBtn.textContent = "⬇️ Export CSV";
+    exportBtn.onclick = () => {
+      this.exportQuickAssessmentCSV();
+    };
+
+    actionsRight.appendChild(toggleBtn);
+    actionsRight.appendChild(exportBtn);
+
+    actionsRow.appendChild(actionsLeft);
+    actionsRow.appendChild(actionsRight);
+
+    // Raw data section (hidden initially)
+    const rawContainer = document.createElement("div");
+    rawContainer.id = "qa-rawdata";
+    rawContainer.style.display = "none";
+    rawContainer.style.background = "var(--color-bg-1)";
+    rawContainer.style.padding = "12px";
+    rawContainer.style.borderRadius = "12px";
+    rawContainer.style.maxHeight = "40vh";
+    rawContainer.style.overflow = "auto";
+    rawContainer.style.marginTop = "10px";
+
+    // Build raw data table (first 200 rows preview)
+    rawContainer.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
+
+    // append everything
+    container.appendChild(chartsRow);
+    container.appendChild(actionsRow);
+    container.appendChild(rawContainer);
+    root.appendChild(container);
+
+    // build charts (Chart.js)
+    const Chart = window.Chart;
+    if (!Chart) {
+      const errMsg = document.createElement("div");
+      errMsg.style.color = "red";
+      errMsg.textContent = "Chart.js not loaded. Please include Chart.js in index.html.";
+      root.appendChild(errMsg);
+      return;
+    }
+
+    // destroy previous chart instances cleanly
+    this._destroyQuickAssessmentCharts();
+
+    if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
+
+    const statusColors = {
+      "OK": "#10B981",
+      "Expiring Soon": "#F59E0B",
+      "Expired": "#EF4444",
+      "Unknown": "#9CA3AF"
+    };
+
+    const labels = summary.map(s => s.status);
+    const counts = summary.map(s => s.count);
+    const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
+
+    try {
+      const pieCtx = pieCanvas.getContext("2d");
+      appState.quickAssessmentCharts.pie = new Chart(pieCtx, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{ data: counts, backgroundColor: bgColors }]
+        },
+        options: {
+          plugins: { legend: { position: "bottom" } },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+
+      const barCtx = barCanvas.getContext("2d");
+      appState.quickAssessmentCharts.bar = new Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Products by Status",
+            data: counts,
+            backgroundColor: bgColors
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    } catch (e) {
+      console.error("Chart build error:", e);
+    }
+  }
+
+  // Build raw data HTML table (returns a DOM node)
+  buildRawDataTable(rows, opts = {}) {
+    const limit = Number(opts.previewLimit ?? 100);
+    const table = document.createElement("table");
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    table.style.fontSize = "12px";
+
+    if (!rows || !rows.length) {
+      const empty = document.createElement("div");
+      empty.textContent = "No rows to display.";
+      return empty;
+    }
+
+    // unify headers: all keys from first row / union of keys
+    const headers = Object.keys(rows[0]);
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    headers.forEach(h => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      th.style.padding = "8px";
+      th.style.textAlign = "left";
+      th.style.borderBottom = "1px solid var(--color-border)";
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+
+    const tbody = document.createElement("tbody");
+    rows.slice(0, limit).forEach(row => {
+      const tr = document.createElement("tr");
+      headers.forEach(h => {
+        const td = document.createElement("td");
+        const val = row[h];
+        td.textContent = (val === null || typeof val === "undefined") ? "" : String(val);
+        td.style.padding = "6px";
+        td.style.borderTop = "1px solid var(--color-border)";
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    // wrapper for horizontal scroll
+    const wrapper = document.createElement("div");
+    wrapper.style.overflowX = "auto";
+    wrapper.appendChild(table);
+
+    if (rows.length > limit) {
+      const note = document.createElement("div");
+      note.style.marginTop = "8px";
+      note.style.fontStyle = "italic";
+      note.style.color = "var(--color-text-secondary)";
+      note.textContent = `Showing ${limit} of ${rows.length} rows. Use Export CSV to download all.`;
+      wrapper.appendChild(note);
+    }
+
+    return wrapper;
+  }
+
+  // Export CSV (uses cached rows)
+  exportQuickAssessmentCSV() {
+    const rows = appState._lastQuickAssessmentRows || [];
+    if (!rows.length) {
+      this.showNotification("⚠️ No data to export", "warning");
+      return;
+    }
+
+    // compute headers (union)
+    const headers = Object.keys(rows[0]);
+    const csvParts = [];
+    csvParts.push(headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(","));
+
+    rows.forEach(r => {
+      const line = headers.map(h => {
+        const v = r[h];
+        if (v === null || typeof v === "undefined") return "";
+        const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      }).join(",");
+      csvParts.push(line);
+    });
+
+    const blob = new Blob([csvParts.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const now = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `quick_assessment_${appState.currentCustomer || 'unnamed'}_${now}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    this.showNotification("✅ CSV exported", "success");
+  }
 
   generateScoreTrendData(currentScore) {
     const trend = [];
