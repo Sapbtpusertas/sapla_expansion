@@ -2745,9 +2745,6 @@ async runQuickAssessment() {
 });
 
 function QuickAssessmentDashboard({ rows, summary, app }) {
-  const R = window.Recharts;
-  const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = R || {};
-
   const colors = {
     "OK": "#10B981",
     "Expiring Soon": "#F59E0B",
@@ -2755,87 +2752,98 @@ function QuickAssessmentDashboard({ rows, summary, app }) {
     "Unknown": "#9CA3AF"
   };
 
-  // Derive summary data
-  const byStatus = Object.fromEntries(summary.map(s => [s.status, s.count]));
-  const total = summary.reduce((s, x) => s + (x.count || 0), 0);
-
-  // Action items
+  // Build action items dynamically
   const actions = [];
-  if ((byStatus['Expired'] || 0) > 0) actions.push(`⚠️ ${byStatus['Expired']} product(s) already expired — act now.`);
-  if ((byStatus['Expiring Soon'] || 0) > 0) actions.push(`⏳ ${byStatus['Expiring Soon']} expiring soon — plan upgrades.`);
-  if (actions.length === 0) actions.push("✅ All systems are up-to-date.");
+  const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+  const expired = summary.find(s => s.status === "Expired");
+  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
+  if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
+  if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
 
-  return React.createElement("div", { style: { padding: "20px", overflowY: "auto", maxHeight: "70vh" } },
+  // React hook for rendering charts
+  const { useEffect } = window.React;
 
-    // Summary cards
-    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "20px" } },
-      ...["OK", "Expiring Soon", "Expired", "Unknown"].map(st =>
-        React.createElement("div", { key: st, style: { background: "var(--color-bg-1)", padding: "12px", borderRadius: "12px", textAlign: "center" } },
-          React.createElement("div", { style: { fontSize: "12px", color: "var(--color-text-secondary)" } }, st),
-          React.createElement("div", { style: { fontWeight: "800", fontSize: "24px", color: colors[st] } }, byStatus[st] || 0)
-        )
+  useEffect(() => {
+    // Pie Chart
+    const pieCtx = document.getElementById("qa-piechart");
+    if (pieCtx) {
+      new window.Chart(pieCtx, {
+        type: "pie",
+        data: {
+          labels: summary.map(s => s.status),
+          datasets: [{
+            data: summary.map(s => s.count),
+            backgroundColor: summary.map(s => colors[s.status] || "#999")
+          }]
+        },
+        options: { responsive: true }
+      });
+    }
+
+    // Bar Chart
+    const barCtx = document.getElementById("qa-barchart");
+    if (barCtx) {
+      new window.Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels: summary.map(s => s.status),
+          datasets: [{
+            label: "Products",
+            data: summary.map(s => s.count),
+            backgroundColor: summary.map(s => colors[s.status] || "#3B82F6")
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+  }, [summary]);
+
+  return window.React.createElement("div", { style: { padding: "20px" } },
+    // Charts grid
+    window.React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "24px"
+      }
+    },
+      window.React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
+        window.React.createElement("h4", null, "Status Distribution"),
+        window.React.createElement("canvas", { id: "qa-piechart", height: "200" })
       ),
-      React.createElement("div", { style: { background: "var(--color-bg-1)", padding: "12px", borderRadius: "12px", textAlign: "center" } },
-        React.createElement("div", { style: { fontSize: "12px", color: "var(--color-text-secondary)" } }, "Total"),
-        React.createElement("div", { style: { fontWeight: "800", fontSize: "24px", color: "var(--color-primary)" } }, total)
+      window.React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
+        window.React.createElement("h4", null, "Products by Status"),
+        window.React.createElement("canvas", { id: "qa-barchart", height: "200" })
       )
     ),
 
-    // Charts
-    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "20px" } },
-      R ? React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
-        React.createElement("h4", null, "Status Distribution"),
-        React.createElement(ResponsiveContainer, { width: "100%", height: 220 },
-          React.createElement(PieChart, null,
-            React.createElement(Pie, {
-              data: summary, dataKey: "count", nameKey: "status", cx: "50%", cy: "50%", outerRadius: 80, label: true
-            }, summary.map((s, i) => React.createElement(Cell, { key: i, fill: colors[s.status] || "#8884d8" }))),
-            React.createElement(Legend, { verticalAlign: "bottom" })
-          )
-        )
-      ) : React.createElement("div", null, "⚠️ Charts unavailable"),
-
-      R ? React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
-        React.createElement("h4", null, "Products by Status"),
-        React.createElement(ResponsiveContainer, { width: "100%", height: 220 },
-          React.createElement(BarChart, { data: summary },
-            React.createElement(XAxis, { dataKey: "status" }),
-            React.createElement(YAxis, null),
-            React.createElement(Tooltip, null),
-            React.createElement(Bar, { dataKey: "count", fill: "#3B82F6" })
-          )
-        )
-      ) : React.createElement("div", null, "⚠️ Charts unavailable")
-    ),
-
-    // Action items
-    React.createElement("div", { style: { marginTop: "20px" } },
-      React.createElement("h4", null, "Action Items"),
-      React.createElement("ul", null,
-        actions.map((a, i) => React.createElement("li", { key: i }, a))
+    // Actions
+    window.React.createElement("div", { style: { marginTop: "24px" } },
+      window.React.createElement("h4", null, "Action Items"),
+      window.React.createElement("ul", null,
+        actions.map((a, i) => window.React.createElement("li", { key: i, style: { marginBottom: "8px" } }, a))
       )
     ),
 
-    // Controls
-    React.createElement("div", { style: { marginTop: "20px", textAlign: "right" } },
-      React.createElement("button", {
+    // Raw Data toggle
+    window.React.createElement("div", { style: { marginTop: "24px", textAlign: "right" } },
+      window.React.createElement("button", {
         className: "btn btn--outline",
         onClick: () => {
           const el = document.getElementById("qa-rawdata");
-          if (el) el.style.display = (el.style.display === "none" ? "block" : "none");
+          if (el) el.style.display = (el.style.display === "none") ? "block" : "none";
         }
       }, "📂 Toggle Raw Data"),
-      React.createElement("button", {
-        className: "btn btn--primary", style: { marginLeft: "8px" },
+      window.React.createElement("button", {
+        className: "btn btn--primary",
+        style: { marginLeft: "12px" },
         onClick: () => app.exportQuickAssessmentCSV()
       }, "⬇️ Export CSV")
     ),
 
-    // Raw table
-    React.createElement("div", {
-      id: "qa-rawdata",
-      style: { display: "none", marginTop: "12px" },
-      dangerouslySetInnerHTML: { __html: app.buildRawDataTable(rows) }
-    })
+    // Raw Data Table
+    window.React.createElement("div", { id: "qa-rawdata", style: { display: "none", marginTop: "16px" } },
+      app.buildRawDataTable(rows)
+    )
   );
 }
