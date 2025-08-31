@@ -1020,49 +1020,47 @@ renderCustomersSection() {
     }
   }
 
+  // 1. Render Analysis Section (safe fallback, no companiesData crash)
   renderAnalysisSection() {
-    console.log('🎯 Rendering Analysis Section');
-    
+    console.log("🎯 Rendering Analysis Section");
+
     const currentCustomer = appState.currentCustomer;
-    const results = document.getElementById('analysis-results');
-    
+    const results = document.getElementById("analysis-results");
+
     if (!currentCustomer) {
-      if (results) results.style.display = 'none';
+      if (results) results.style.display = "none";
       return;
     }
-    
-    if (results) results.style.display = 'block';
-    
-    const company = companiesData.find(c => c.id === currentCustomer);
-    if (!company) return;
 
-    // Update overall analysis score
-    const scoreEl = document.getElementById('overall-analysis-score');
-    if (scoreEl) {
-      scoreEl.textContent = company.overallScore;
-    }
+    if (results) results.style.display = "block";
 
-    // Render category breakdown
-    const breakdown = document.getElementById('category-breakdown');
+    // 🔹 TODO: later wire real analysis data.
+    // For now just render placeholder instead of companiesData
+    const scoreEl = document.getElementById("overall-analysis-score");
+    if (scoreEl) scoreEl.textContent = "—";
+
+    const breakdown = document.getElementById("category-breakdown");
     if (breakdown) {
-      breakdown.innerHTML = assessmentFramework.categories.map(category => {
-        const score = company.scores[category.id];
-        
-        return `
+      breakdown.innerHTML = assessmentFramework.categories
+        .map(
+          (category) => `
           <div class="breakdown-category" data-category-id="${category.id}">
             <div class="breakdown-icon">
               <span data-lucide="${category.icon}"></span>
             </div>
             <div class="breakdown-name">${category.name}</div>
-            <div class="breakdown-score">${score}%</div>
+            <div class="breakdown-score">—</div>
             <div class="breakdown-weight">Weight: ${category.weight}%</div>
           </div>
-        `;
-      }).join('');
-
-      console.log('Analysis breakdown rendered');
+        `
+        )
+        .join("");
     }
+
+    console.log("Analysis breakdown rendered (placeholder mode)");
   }
+
+
   // Build raw data preview table for Quick Assessment
   buildRawDataTable(rows) {
     if (!rows.length) {
@@ -1830,6 +1828,7 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
+  // 2. Run Quick Assessment (with cached React root)
   async runQuickAssessment() {
     try {
       if (!appState.currentCustomer) {
@@ -1839,7 +1838,9 @@ viewCustomerDetails(customerId) {
 
       this.showNotification("⏳ Running quick assessment...", "info");
 
-      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(
+        appState.currentCustomer
+      )}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
@@ -1857,31 +1858,32 @@ viewCustomerDetails(customerId) {
       // Cache rows for CSV export
       this._lastQuickAssessmentRows = rows;
 
-      // 🔹 Open modal ONCE with a React mount point
+      // 🔹 Open modal ONCE with React mount point
       this.showModal(
         "Quick Assessment Report",
         `<div id="qa-react-root" style="padding:20px; min-height:300px;"></div>`
       );
 
-      // 🔹 Render React component
+      // 🔹 Render React dashboard
       setTimeout(() => {
         const rootEl = document.getElementById("qa-react-root");
         if (!rootEl) return;
 
-        // use React 18 API
-        // const { createRoot } = window.ReactDOMClient;
-        const root = window.ReactDOM.createRoot(rootEl);
+        // Keep global root cache (avoid multiple createRoot calls)
+        if (!window._qaReactRoot) {
+          const { createRoot } = window.ReactDOMClient || window.ReactDOM;
+          window._qaReactRoot = createRoot(rootEl);
+        }
 
-        root.render(
+        window._qaReactRoot.render(
           window.React.createElement(QuickAssessmentDashboard, { rows, summary })
         );
       }, 50);
-
     } catch (err) {
       console.error("Quick assessment failed", err);
       this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
     }
-  }
+}
 
 
 
@@ -2521,9 +2523,20 @@ viewCustomerDetails(customerId) {
 
   // FIXED: Utility Methods
 
+  // 3. Show Modal (don’t auto-close if already same modal)
   showModal(title, contentHtml) {
-    // Close only the *visible overlay*, but keep React mount stable if needed
-    this.closeModal();
+    // If last modal has same title, just replace content
+    const last = appState.modalStack[appState.modalStack.length - 1];
+    if (
+      last &&
+      last.querySelector(".modal-header h3")?.innerText === title
+    ) {
+      const body = last.querySelector(".modal-body");
+      if (body) body.innerHTML = contentHtml;
+      return;
+    }
+
+    this.closeModal(); // close different modal if open
 
     const modal = document.createElement("div");
     modal.className = "modal-overlay";
@@ -2542,7 +2555,6 @@ viewCustomerDetails(customerId) {
     document.body.appendChild(modal);
     appState.modalStack.push(modal);
 
-    // Don’t auto-close, just keep open until user clicks ✖
     setTimeout(() => {
       if (typeof lucide !== "undefined") {
         lucide.createIcons();
@@ -2550,17 +2562,6 @@ viewCustomerDetails(customerId) {
     }, 100);
 
     console.log("Modal opened:", title);
-  }
-
-
-  closeModal() {
-    if (appState.modalStack.length > 0) {
-      const modal = appState.modalStack.pop();
-      if (modal && modal.parentNode) {
-        modal.parentNode.removeChild(modal);
-        console.log('Modal closed');
-      }
-    }
   }
 
   generateScoreTrendData(currentScore) {
