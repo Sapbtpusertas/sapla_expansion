@@ -2745,87 +2745,96 @@ async runQuickAssessment() {
 });
 
 function QuickAssessmentDashboard({ rows, summary, app }) {
-  const colors = {
-    "OK": "#10B981",
-    "Expiring Soon": "#F59E0B",
-    "Expired": "#EF4444",
-    "Unknown": "#9CA3AF"
-  };
+  const { useEffect, useRef } = window.React;
 
-  // Build action items dynamically
-  const actions = [];
-  const expiringSoon = summary.find(s => s.status === "Expiring Soon");
-  const expired = summary.find(s => s.status === "Expired");
-  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
-  if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
-  if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
-
-  // React hook for rendering charts
-  const { useEffect } = window.React;
+  const pieRef = useRef(null);
+  const barRef = useRef(null);
+  const charts = useRef({});
 
   useEffect(() => {
-    // Pie Chart
-    const pieCtx = document.getElementById("qa-piechart");
-    if (pieCtx) {
-      new window.Chart(pieCtx, {
+    const Chart = window.Chart;
+
+    // destroy old charts if they exist
+    if (charts.current.pie) charts.current.pie.destroy();
+    if (charts.current.bar) charts.current.bar.destroy();
+
+    // prepare data
+    const labels = summary.map(s => s.status);
+    const dataCounts = summary.map(s => s.count);
+    const colors = {
+      "OK": "#10B981",
+      "Expiring Soon": "#F59E0B",
+      "Expired": "#EF4444",
+      "Unknown": "#9CA3AF"
+    };
+    const backgroundColors = summary.map(s => colors[s.status] || "#3B82F6");
+
+    // pie chart
+    if (pieRef.current) {
+      charts.current.pie = new Chart(pieRef.current, {
         type: "pie",
         data: {
-          labels: summary.map(s => s.status),
-          datasets: [{
-            data: summary.map(s => s.count),
-            backgroundColor: summary.map(s => colors[s.status] || "#999")
-          }]
+          labels,
+          datasets: [{ data: dataCounts, backgroundColor: backgroundColors }]
         },
         options: { responsive: true }
       });
     }
 
-    // Bar Chart
-    const barCtx = document.getElementById("qa-barchart");
-    if (barCtx) {
-      new window.Chart(barCtx, {
+    // bar chart
+    if (barRef.current) {
+      charts.current.bar = new Chart(barRef.current, {
         type: "bar",
         data: {
-          labels: summary.map(s => s.status),
+          labels,
           datasets: [{
-            label: "Products",
-            data: summary.map(s => s.count),
-            backgroundColor: summary.map(s => colors[s.status] || "#3B82F6")
+            label: "Products by Status",
+            data: dataCounts,
+            backgroundColor: backgroundColors
           }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
       });
     }
+
+    // cleanup on unmount
+    return () => {
+      if (charts.current.pie) charts.current.pie.destroy();
+      if (charts.current.bar) charts.current.bar.destroy();
+    };
   }, [summary]);
 
+  // dynamic action items
+  const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+  const expired = summary.find(s => s.status === "Expired");
+  const actions = [];
+  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} expired products. Immediate action required.`);
+  if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} expiring soon. Plan upgrade.`);
+  if (actions.length === 0) actions.push("✅ All systems are up-to-date.");
+
   return window.React.createElement("div", { style: { padding: "20px" } },
-    // Charts grid
-    window.React.createElement("div", {
-      style: {
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "24px"
-      }
-    },
-      window.React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
+    // charts
+    window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" } },
+      window.React.createElement("div", { style: { background: "var(--color-bg-1)", padding: "12px", borderRadius: "12px" } },
         window.React.createElement("h4", null, "Status Distribution"),
-        window.React.createElement("canvas", { id: "qa-piechart", height: "200" })
+        window.React.createElement("canvas", { id: "qa-piechart", ref: pieRef })
       ),
-      window.React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
+      window.React.createElement("div", { style: { background: "var(--color-bg-1)", padding: "12px", borderRadius: "12px" } },
         window.React.createElement("h4", null, "Products by Status"),
-        window.React.createElement("canvas", { id: "qa-barchart", height: "200" })
+        window.React.createElement("canvas", { id: "qa-barchart", ref: barRef })
       )
     ),
-
-    // Actions
+    // action items
     window.React.createElement("div", { style: { marginTop: "24px" } },
       window.React.createElement("h4", null, "Action Items"),
       window.React.createElement("ul", null,
-        actions.map((a, i) => window.React.createElement("li", { key: i, style: { marginBottom: "8px" } }, a))
+        actions.map((a, i) => window.React.createElement("li", { key: i }, a))
       )
     ),
-
-    // Raw Data toggle
+    // raw data + export
     window.React.createElement("div", { style: { marginTop: "24px", textAlign: "right" } },
       window.React.createElement("button", {
         className: "btn btn--outline",
@@ -2840,8 +2849,6 @@ function QuickAssessmentDashboard({ rows, summary, app }) {
         onClick: () => app.exportQuickAssessmentCSV()
       }, "⬇️ Export CSV")
     ),
-
-    // Raw Data Table
     window.React.createElement("div", { id: "qa-rawdata", style: { display: "none", marginTop: "16px" } },
       app.buildRawDataTable(rows)
     )
