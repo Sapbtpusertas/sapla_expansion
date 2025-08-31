@@ -2564,6 +2564,17 @@ viewCustomerDetails(customerId) {
     console.log("Modal opened:", title);
   }
 
+
+  closeModal() {
+    if (appState.modalStack.length > 0) {
+      const modal = appState.modalStack.pop();
+      if (modal && modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+        console.log('Modal closed');
+      }
+    }
+  }
+
   generateScoreTrendData(currentScore) {
     const trend = [];
     let score = Math.max(0, currentScore - 20);
