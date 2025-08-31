@@ -1846,7 +1846,6 @@ viewCustomerDetails(customerId) {
 
       const rows = payload.rows || [];
       const summary = payload.summary || [];
-
       if (!rows.length) {
         this.showNotification("⚠️ No data available for Quick Assessment", "warning");
         return;
@@ -1854,24 +1853,17 @@ viewCustomerDetails(customerId) {
 
       console.log("📊 Quick Assessment:", { rows, summary });
 
-      // open modal shell with a React root container
-      this.showModal("Quick Assessment Report", `
-        <div id="qa-react-root" style="padding:0; height:70vh; overflow:hidden;"></div>
-      `);
+      // Show modal with container div for React
+      this.showModal("Quick Assessment Report", `<div id="qa-react-root"></div>`);
 
-      // store for CSV export
-      this._lastQuickAssessmentRows = rows;
-
-      // Mount React after modal exists
-      setTimeout(() => {
-        const rootEl = document.getElementById("qa-react-root");
-        if (rootEl) {
-          const root = ReactDOM.createRoot(rootEl);
-          root.render(
-            React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
-          );
-        }
-      }, 0);
+      // Render React component
+      const container = document.getElementById("qa-react-root");
+      if (!this._qaRoot) {
+        this._qaRoot = ReactDOM.createRoot(container); // ✅ only once
+      }
+      this._qaRoot.render(
+        React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
+      );
 
     } catch (err) {
       console.error("Quick assessment failed", err);
@@ -2690,20 +2682,13 @@ viewCustomerDetails(customerId) {
   document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, initializing SAP Assessment Platform...');
 
-  // Ensure handler is only bound once
-  if (!window._qaHandlerAttached) {
-    document.addEventListener("click", (e) => {
-      const target = e.target.closest("button, a, div");
-      if (!target) return;
+  document.addEventListener("click", (e) => {
+    if (e.target.id === "quick-assessment") {
+      console.log("Action button clicked: quick-assessment");
+      window.sapApp.runQuickAssessment(); // ✅ call via global
+    }
+  });
 
-      if (target.id === "quick-assessment") {
-        console.log("Action button clicked: quick-assessment");
-        e.stopPropagation(); // prevent bubbling double fire
-        this.runQuickAssessment();
-      }
-    });
-    window._qaHandlerAttached = true;
-  }
 
 
   const app = new SAPAssessmentPlatform();
