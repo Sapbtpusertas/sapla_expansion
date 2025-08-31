@@ -2819,6 +2819,7 @@ async runQuickAssessment() {
     console.error("Chart build error:", e);
   }
 
+  }
 
   // Build raw data HTML table (returns a DOM node)
   buildRawDataTable(rows, opts = {}) {
