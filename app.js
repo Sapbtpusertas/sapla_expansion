@@ -1064,82 +1064,121 @@ renderCustomersSection() {
     }
   }
 
-  // Renders the Quick Assessment dashboard with tabs (Summary / Raw Data)
+  // Render with charts
   renderQuickAssessmentReport(rows, summary) {
+    // Cache rows for CSV export
+    this._lastQuickAssessmentRows = rows;
+
     const statusColors = {
-      "OK": "var(--dashboard-success)",
-      "Expiring Soon": "var(--dashboard-warning)",
-      "Expired": "var(--dashboard-danger)",
-      "Unknown": "var(--color-text-secondary)"
+      "OK": "#10B981",             // green
+      "Expiring Soon": "#F59E0B",  // amber
+      "Expired": "#EF4444",        // red
+      "Unknown": "#9CA3AF"         // gray
     };
 
-    // --- Summary cards ---
-    const summaryHtml = summary.map(s => `
-      <div style="padding:20px; background:var(--color-bg-1); border-radius:16px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
-        <div style="font-size:28px; font-weight:700; color:${statusColors[s.status] || 'var(--color-primary)'}">
-          ${s.count}
+    // --- Chart data ---
+    const pieData = summary.map(s => ({
+      name: s.status,
+      value: s.count,
+      fill: statusColors[s.status] || "#3B82F6"
+    }));
+
+    // Products grouped by status (bar chart)
+    const grouped = {};
+    rows.forEach(r => {
+      const st = r.status || "Unknown";
+      grouped[st] = (grouped[st] || 0) + 1;
+    });
+    const barData = Object.keys(grouped).map(k => ({
+      status: k,
+      count: grouped[k],
+      fill: statusColors[k] || "#3B82F6"
+    }));
+
+    // Build chart containers
+    const chartsHtml = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin:20px 0;">
+        <!-- Pie Chart -->
+        <div style="background:var(--color-bg-1); border-radius:16px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+          <h5>Status Distribution</h5>
+          <div id="qa-piechart" style="width:100%; height:300px;"></div>
         </div>
-        <div style="font-size:13px; margin-top:4px; color:var(--color-text-secondary)">${s.status}</div>
-      </div>
-    `).join('');
-
-    // --- Action items ---
-    let actions = [];
-    const expiringSoon = summary.find(s => s.status === "Expiring Soon");
-    const expired = summary.find(s => s.status === "Expired");
-    if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
-    if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
-    if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
-
-    const actionsHtml = actions.map(a => `<li style="margin-bottom:10px;">${a}</li>`).join('');
-
-    // --- Raw Data ---
-    const tableHeaders = Object.keys(rows[0] || {}).map(h => `<th style="padding:10px; text-align:left; background:var(--color-bg-2);">${h}</th>`).join('');
-    const tableRows = rows.slice(0, 50).map(r => `
-      <tr>
-        ${Object.values(r).map(v => `<td style="padding:8px; border-top:1px solid var(--color-border);">${v ?? ''}</td>`).join('')}
-      </tr>
-    `).join('');
-
-    const rawDataHtml = `
-      <div id="qa-rawdata" style="display:none; margin-top:16px;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-          <thead><tr>${tableHeaders}</tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-        ${rows.length > 50 ? `<div style="margin-top:8px; font-style:italic; color:var(--color-text-secondary)">Showing 50 of ${rows.length} rows…</div>` : ''}
-        <button class="btn btn--outline" onclick="window.sapApp.exportQuickAssessmentCSV()" style="margin-top:12px;">⬇️ Download CSV</button>
+        <!-- Bar Chart -->
+        <div style="background:var(--color-bg-1); border-radius:16px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+          <h5>Products by Status</h5>
+          <div id="qa-barchart" style="width:100%; height:300px;"></div>
+        </div>
       </div>
     `;
 
-    // --- Modal with Tab Switcher ---
+    // Raw data (as before)
+    const rawDataHtml = this.buildRawDataTable(rows);
+
+    // Modal with Tabs
     this.showModal("Quick Assessment Report", `
       <div style="padding:20px; max-height:75vh; overflow-y:auto;">
-
-        <!-- Tab Controls -->
         <div style="display:flex; gap:12px; margin-bottom:20px; border-bottom:1px solid var(--color-border);">
           <button id="qa-tab-summary" class="btn btn--secondary" style="flex:1;" onclick="window.sapApp.switchQATab('summary')">📊 Summary</button>
           <button id="qa-tab-raw" class="btn btn--outline" style="flex:1;" onclick="window.sapApp.switchQATab('raw')">📂 Raw Data</button>
         </div>
 
-        <!-- Summary View -->
+        <!-- Summary -->
         <div id="qa-summary">
-          <h4>Status Summary</h4>
-          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:16px; margin:16px 0;">
-            ${summaryHtml}
-          </div>
-
-          <h4>Action Items</h4>
-          <ul style="margin:16px 0; padding-left:20px;">${actionsHtml}</ul>
+          ${chartsHtml}
         </div>
 
-        <!-- Raw Data View -->
+        <!-- Raw Data -->
         ${rawDataHtml}
       </div>
     `);
 
-    // Default: show summary tab
     this.switchQATab("summary");
+
+    // Render charts dynamically
+    this.renderQuickAssessmentCharts(pieData, barData);
+  }
+
+  renderQuickAssessmentCharts(pieData, barData) {
+    const { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } = Recharts;
+
+    // Pie Chart
+    ReactDOM.render(
+      React.createElement(PieChart, { width: 300, height: 300 },
+        React.createElement(Pie, {
+          data: pieData,
+          dataKey: "value",
+          nameKey: "name",
+          cx: "50%",
+          cy: "50%",
+          outerRadius: 100,
+          label: true
+        },
+          pieData.map((entry, i) =>
+            React.createElement(Cell, { key: i, fill: entry.fill })
+          )
+        ),
+        React.createElement(Tooltip),
+        React.createElement(Legend)
+      ),
+      document.getElementById("qa-piechart")
+    );
+
+    // Bar Chart
+    ReactDOM.render(
+      React.createElement(BarChart, { width: 300, height: 300, data: barData },
+        React.createElement(CartesianGrid, { strokeDasharray: "3 3" }),
+        React.createElement(XAxis, { dataKey: "status" }),
+        React.createElement(YAxis),
+        React.createElement(Tooltip),
+        React.createElement(Legend),
+        React.createElement(Bar, { dataKey: "count" },
+          barData.map((entry, i) =>
+            React.createElement(Cell, { key: i, fill: entry.fill })
+          )
+        )
+      ),
+      document.getElementById("qa-barchart")
+    );
   }
 
   // Tab switching logic
@@ -2606,13 +2645,25 @@ viewCustomerDetails(customerId) {
   }
 }
 
-// FIXED: Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 DOM loaded, initializing SAP Assessment Platform...');
+  // FIXED: Initialize Application
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 DOM loaded, initializing SAP Assessment Platform...');
 
-document.getElementById('quick-assessment')?.addEventListener('click', () => {
-  window.sapApp.runQuickAssessment();
-});
+  // Ensure handler is only bound once
+  if (!window._qaHandlerAttached) {
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest("button, a, div");
+      if (!target) return;
+
+      if (target.id === "quick-assessment") {
+        console.log("Action button clicked: quick-assessment");
+        e.stopPropagation(); // prevent bubbling double fire
+        this.runQuickAssessment();
+      }
+    });
+    window._qaHandlerAttached = true;
+  }
+
 
   const app = new SAPAssessmentPlatform();
   window.sapApp = app;
