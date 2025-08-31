@@ -1636,51 +1636,39 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-  async runQuickAssessment() {
-    try {
-      if (!appState.currentCustomer) {
-        this.showNotification('❌ Please select a customer first', 'error');
-        return;
-      }
-
-      this.showNotification('📊 Running quick assessment...', 'info');
-
-      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
-      const payload = await res.json();
-      const rows = payload.rows || [];
-
-      if (!rows.length) {
-        this.showNotification('⚠️ No data available for Quick Assessment', 'warning');
-        return;
-      }
-
-      // render modal with table
-      const headers = Object.keys(rows[0]);
-      const tableHtml = `
-        <table class="data-table">
-          <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>${headers.map(h => `<td>${r[h] ?? ''}</td>`).join('')}</tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-
-      this.showModal('Quick Assessment Results', `
-        <div style="padding:20px; max-height:70vh; overflow:auto;">
-          ${tableHtml}
-        </div>
-      `);
-
-    } catch (err) {
-      console.error("Quick assessment failed", err);
-      this.showNotification(`❌ Quick assessment failed: ${err.message}`, 'error');
+async runQuickAssessment() {
+  try {
+    if (!appState.currentCustomer) {
+      this.showNotification("❌ Please select a customer first", "error");
+      return;
     }
+
+    const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const payload = await res.json();
+
+    const rows = payload.rows || [];
+    const summary = payload.summary || [];
+
+    if (!rows.length) {
+      this.showNotification("⚠️ No data available for Quick Assessment", "warning");
+      return;
+    }
+
+    console.log("📊 Quick Assessment:", { rows, summary });
+
+    // 👉 Here we’ll add rendering of:
+    // 1. Report View (summary cards + groups)
+    // 2. Raw Data toggle
+    this.renderQuickAssessmentReport(rows, summary);
+
+  } catch (err) {
+    console.error("Quick assessment failed", err);
+    this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
   }
+}
+
 
 
     // Export quick assessment rows to CSV
