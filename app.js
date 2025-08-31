@@ -2597,8 +2597,7 @@ async runQuickAssessment() {
       return;
     }
 
-    // clear previous
-    root.innerHTML = "";
+    root.innerHTML = ""; // clear previous
 
     // container
     const container = document.createElement("div");
@@ -2606,13 +2605,7 @@ async runQuickAssessment() {
     container.style.flexDirection = "column";
     container.style.gap = "20px";
 
-    // charts grid
-    const chartsRow = document.createElement("div");
-    chartsRow.style.display = "grid";
-    chartsRow.style.gridTemplateColumns = "1fr 1fr";
-    chartsRow.style.gap = "20px";
-
-    // helper: create card
+    // helper: make card
     const makeCard = (title) => {
       const card = document.createElement("div");
       card.style.background = "var(--color-bg-1)";
@@ -2634,34 +2627,35 @@ async runQuickAssessment() {
       return { card, body: card };
     };
 
-    // pie card
+    // --- Pie Card: Status Distribution ---
     const { card: pieCard } = makeCard("Status Distribution");
     const pieWrapper = document.createElement("div");
     pieWrapper.style.position = "relative";
-    pieWrapper.style.height = "260px";
+    pieWrapper.style.height = "280px";
     const pieCanvas = document.createElement("canvas");
     pieCanvas.id = "qa-piechart-cvs";
-    pieCanvas.style.width = "100%";
-    pieCanvas.style.height = "100%";
     pieWrapper.appendChild(pieCanvas);
     pieCard.appendChild(pieWrapper);
 
-    // bar card
-    const { card: barCard } = makeCard("Products by Status");
-    const barWrapper = document.createElement("div");
-    barWrapper.style.position = "relative";
-    barWrapper.style.height = "260px";
-    const barCanvas = document.createElement("canvas");
-    barCanvas.id = "qa-barchart-cvs";
-    barCanvas.style.width = "100%";
-    barCanvas.style.height = "100%";
-    barWrapper.appendChild(barCanvas);
-    barCard.appendChild(barWrapper);
+    // --- System Chart (new bar) ---
+    const { card: sysCard } = makeCard("Systems by Status");
+    const sysWrapper = document.createElement("div");
+    sysWrapper.style.position = "relative";
+    sysWrapper.style.height = "300px";
+    const sysCanvas = document.createElement("canvas");
+    sysCanvas.id = "qa-syschart-cvs";
+    sysWrapper.appendChild(sysCanvas);
+    sysCard.appendChild(sysWrapper);
 
+    // charts grid
+    const chartsRow = document.createElement("div");
+    chartsRow.style.display = "grid";
+    chartsRow.style.gridTemplateColumns = "1fr 1fr";
+    chartsRow.style.gap = "20px";
     chartsRow.appendChild(pieCard);
-    chartsRow.appendChild(barCard);
+    chartsRow.appendChild(sysCard);
 
-    // --- action items ---
+    // --- Action Items ---
     const actionsCard = document.createElement("div");
     actionsCard.style.background = "var(--color-bg-1)";
     actionsCard.style.padding = "16px";
@@ -2670,7 +2664,6 @@ async runQuickAssessment() {
 
     const actionsTitle = document.createElement("h4");
     actionsTitle.textContent = "Action Items";
-    actionsTitle.style.margin = "0 0 12px 0";
     actionsCard.appendChild(actionsTitle);
 
     const actionsList = document.createElement("ul");
@@ -2680,14 +2673,14 @@ async runQuickAssessment() {
     const expSoon = summary.find(s => s.status === "Expiring Soon");
     const expired = summary.find(s => s.status === "Expired");
     const items = [];
-    if (expired?.count > 0) items.push({ txt: `⚠️ ${expired.count} product(s) expired. Immediate action required.`, color: "#EF4444" });
-    if (expSoon?.count > 0) items.push({ txt: `⏳ ${expSoon.count} product(s) expiring soon. Plan upgrade/migration.`, color: "#F59E0B" });
+    if (expired?.count > 0) items.push({ txt: `⚠️ ${expired.count} expired system(s). Immediate action required.`, color: "#EF4444" });
+    if (expSoon?.count > 0) items.push({ txt: `⏳ ${expSoon.count} expiring soon. Plan upgrade/migration.`, color: "#F59E0B" });
     if (items.length === 0) items.push({ txt: "✅ All systems up-to-date. No urgent items.", color: "#10B981" });
 
     items.forEach(it => {
       const li = document.createElement("li");
       li.textContent = it.txt;
-      li.style.marginBottom = "8px";
+      li.style.margin = "8px 0";
       li.style.padding = "8px";
       li.style.borderLeft = `4px solid ${it.color}`;
       li.style.background = "var(--color-bg-2)";
@@ -2696,49 +2689,48 @@ async runQuickAssessment() {
     });
     actionsCard.appendChild(actionsList);
 
-    // --- buttons ---
-    const btnRow = document.createElement("div");
-    btnRow.style.display = "flex";
-    btnRow.style.justifyContent = "flex-end";
-    btnRow.style.gap = "10px";
-    btnRow.style.marginTop = "12px";
+    // --- Raw Data Collapsible ---
+    const rawCard = document.createElement("div");
+    rawCard.style.background = "var(--color-bg-1)";
+    rawCard.style.padding = "16px";
+    rawCard.style.borderRadius = "12px";
+    rawCard.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
+    rawCard.style.marginTop = "10px";
 
-    const toggleBtn = document.createElement("button");
-    toggleBtn.className = "btn btn--outline";
-    toggleBtn.textContent = "📂 Toggle Raw Data";
-    toggleBtn.onclick = () => {
-      const el = document.getElementById("qa-rawdata");
-      if (el) el.style.display = (el.style.display === "none") ? "block" : "none";
+    const rawHeader = document.createElement("div");
+    rawHeader.style.display = "flex";
+    rawHeader.style.justifyContent = "space-between";
+    rawHeader.style.alignItems = "center";
+    const rawTitle = document.createElement("h4");
+    rawTitle.textContent = "Raw Data Preview";
+    rawHeader.appendChild(rawTitle);
+
+    const rawToggle = document.createElement("button");
+    rawToggle.className = "btn btn--outline";
+    rawToggle.textContent = "📂 Toggle";
+    rawToggle.onclick = () => {
+      rawBody.style.display = (rawBody.style.display === "none") ? "block" : "none";
     };
+    rawHeader.appendChild(rawToggle);
 
-    const exportBtn = document.createElement("button");
-    exportBtn.className = "btn btn--primary";
-    exportBtn.textContent = "⬇️ Export CSV";
-    exportBtn.onclick = () => this.exportQuickAssessmentCSV();
+    const rawBody = document.createElement("div");
+    rawBody.id = "qa-rawdata";
+    rawBody.style.display = "none";
+    rawBody.style.maxHeight = "40vh";
+    rawBody.style.overflow = "auto";
+    rawBody.style.marginTop = "12px";
+    rawBody.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
 
-    btnRow.appendChild(toggleBtn);
-    btnRow.appendChild(exportBtn);
-    actionsCard.appendChild(btnRow);
-
-    // --- raw data ---
-    const rawContainer = document.createElement("div");
-    rawContainer.id = "qa-rawdata";
-    rawContainer.style.display = "none";
-    rawContainer.style.background = "var(--color-bg-1)";
-    rawContainer.style.padding = "12px";
-    rawContainer.style.borderRadius = "12px";
-    rawContainer.style.maxHeight = "40vh";
-    rawContainer.style.overflow = "auto";
-    rawContainer.style.marginTop = "10px";
-    rawContainer.appendChild(this.buildRawDataTable(rows, { previewLimit: 200 }));
+    rawCard.appendChild(rawHeader);
+    rawCard.appendChild(rawBody);
 
     // assemble
     container.appendChild(chartsRow);
     container.appendChild(actionsCard);
-    container.appendChild(rawContainer);
+    container.appendChild(rawCard);
     root.appendChild(container);
 
-    // build charts
+    // --- Build Charts ---
     const Chart = window.Chart;
     if (!Chart) {
       root.appendChild(Object.assign(document.createElement("div"), {
@@ -2748,7 +2740,7 @@ async runQuickAssessment() {
       return;
     }
 
-    // cleanup old
+    // cleanup
     this._destroyQuickAssessmentCharts();
     if (!appState.quickAssessmentCharts) appState.quickAssessmentCharts = {};
 
@@ -2758,37 +2750,65 @@ async runQuickAssessment() {
       "Expired": "#EF4444",
       "Unknown": "#9CA3AF"
     };
+
     const labels = summary.map(s => s.status);
     const counts = summary.map(s => s.count);
     const bgColors = summary.map(s => statusColors[s.status] || "#6B7280");
 
     try {
+      // Pie Chart with percentages
       appState.quickAssessmentCharts.pie = new Chart(pieCanvas.getContext("2d"), {
         type: "pie",
         data: { labels, datasets: [{ data: counts, backgroundColor: bgColors }] },
         options: {
-          plugins: { legend: { position: "bottom" } },
+          plugins: {
+            legend: { position: "bottom" },
+            datalabels: {
+              formatter: (val, ctx) => {
+                let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                let pct = ((val / total) * 100).toFixed(1) + "%";
+                return pct;
+              },
+              color: "#fff",
+              font: { weight: "bold" }
+            }
+          },
           responsive: true,
-          maintainAspectRatio: false,
-          animation: { animateScale: true, duration: 700 }
-        }
+          maintainAspectRatio: false
+        },
+        plugins: [window.ChartDataLabels]
       });
 
-      appState.quickAssessmentCharts.bar = new Chart(barCanvas.getContext("2d"), {
+      // Aggregate by system (status counts per SID)
+      const systems = {};
+      rows.forEach(r => {
+        const sys = r.tech_system_display_name || "Unknown";
+        if (!systems[sys]) systems[sys] = { OK: 0, "Expiring Soon": 0, Expired: 0, Unknown: 0 };
+        systems[sys][r.status] = (systems[sys][r.status] || 0) + 1;
+      });
+
+      const sysLabels = Object.keys(systems);
+      const sysDatasets = Object.keys(statusColors).map(status => ({
+        label: status,
+        data: sysLabels.map(l => systems[l][status]),
+        backgroundColor: statusColors[status]
+      }));
+
+      appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
         type: "bar",
-        data: { labels, datasets: [{ label: "Products by Status", data: counts, backgroundColor: bgColors }] },
+        data: { labels: sysLabels, datasets: sysDatasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { beginAtZero: true } },
-          animation: { duration: 700 }
+          plugins: { legend: { position: "bottom" } },
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
         }
       });
+
     } catch (e) {
       console.error("Chart build error:", e);
     }
   }
-
 
   // Build raw data HTML table (returns a DOM node)
   buildRawDataTable(rows, opts = {}) {
