@@ -2728,37 +2728,80 @@ viewCustomerDetails(customerId) {
   console.log('📊 Ready for comprehensive testing!');
 });
 
-  function QuickAssessmentDashboard({ rows, summary, app }) {
-    const R = window.Recharts;
-    if (!R) {
-      return React.createElement("div", { style: { padding: "20px", color: "red" } },
-        "⚠️ Recharts library not loaded. Please check index.html"
-      );
-    }
+function QuickAssessmentDashboard({ rows, summary, app }) {
+  const R = window.Recharts;
+  if (!R) {
+    return React.createElement("div", { style: { padding: "20px", color: "red" } },
+      "⚠️ Recharts library not loaded. Please check index.html"
+    );
+  }
 
-    const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = R;
-    const colors = {
-      "OK": "#10B981",
-      "Expiring Soon": "#F59E0B",
-      "Expired": "#EF4444",
-      "Unknown": "#9CA3AF"
-    };
+  const {
+    PieChart, Pie, Cell, BarChart, Bar,
+    XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
+  } = R;
 
-    // action items
-    const actions = [];
-    const expiringSoon = summary.find(s => s.status === "Expiring Soon");
-    const expired = summary.find(s => s.status === "Expired");
-    if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
-    if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
-    if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
+  const colors = {
+    "OK": "#10B981",
+    "Expiring Soon": "#F59E0B",
+    "Expired": "#EF4444",
+    "Unknown": "#9CA3AF"
+  };
 
-    return React.createElement("div", { style: { padding: "20px", height: "100%", overflowY: "auto" } },
-      // summary charts
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", height: "300px" } },
-        // Pie
-        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
-          React.createElement("h4", null, "Status Distribution"),
-          React.createElement(ResponsiveContainer, { width: "100%", height: 220 },
+  // Action items
+  const actions = [];
+  const expiringSoon = summary.find(s => s.status === "Expiring Soon");
+  const expired = summary.find(s => s.status === "Expired");
+  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} products already expired. Immediate action required.`);
+  if (expiringSoon?.count > 0) actions.push(`⏳ ${expiringSoon.count} products expiring soon. Plan upgrade or migration.`);
+  if (actions.length === 0) actions.push("✅ All systems are up-to-date. No urgent action items.");
+
+  // --- Tab State (Dashboard vs Raw Data)
+  const [tab, setTab] = React.useState("dashboard");
+
+  // --- Raw data table helper
+  const rawDataTable = app.buildRawDataTable(rows);
+
+  return React.createElement("div", { style: { padding: "20px", minHeight: "100%", overflowY: "auto" } },
+
+    // --- Tabs
+    React.createElement("div", {
+      style: {
+        display: "flex", borderBottom: "1px solid var(--color-border)",
+        marginBottom: "20px"
+      }
+    },
+      ["dashboard", "raw"].map(key =>
+        React.createElement("div", {
+          key,
+          onClick: () => setTab(key),
+          style: {
+            padding: "10px 20px",
+            cursor: "pointer",
+            borderBottom: tab === key ? "3px solid var(--color-primary)" : "3px solid transparent",
+            color: tab === key ? "var(--color-primary)" : "var(--color-text-secondary)",
+            fontWeight: tab === key ? "600" : "400"
+          }
+        }, key === "dashboard" ? "📊 Dashboard" : "📂 Raw Data")
+      )
+    ),
+
+    // --- Dashboard view
+    tab === "dashboard" && React.createElement("div", null,
+
+      // Charts row
+      React.createElement("div", {
+        style: {
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "24px",
+          marginBottom: "24px"
+        }
+      },
+        // Pie chart
+        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "16px" } },
+          React.createElement("h4", { style: { marginBottom: "8px" } }, "Status Distribution"),
+          React.createElement(ResponsiveContainer, { width: "100%", height: 240 },
             React.createElement(PieChart, null,
               React.createElement(Pie, {
                 data: summary,
@@ -2773,49 +2816,68 @@ viewCustomerDetails(customerId) {
                   React.createElement(Cell, { key: idx, fill: colors[entry.status] || "#8884d8" })
                 )
               ),
+              React.createElement(Tooltip, null),
               React.createElement(Legend, { verticalAlign: "bottom" })
             )
           )
         ),
-        // Bar
-        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "12px" } },
-          React.createElement("h4", null, "Products by Status"),
-          React.createElement(ResponsiveContainer, { width: "100%", height: 220 },
+        // Bar chart
+        React.createElement("div", { style: { background: "var(--color-bg-1)", borderRadius: "12px", padding: "16px" } },
+          React.createElement("h4", { style: { marginBottom: "8px" } }, "Products by Status"),
+          React.createElement(ResponsiveContainer, { width: "100%", height: 240 },
             React.createElement(BarChart, { data: summary },
+              React.createElement(CartesianGrid, { strokeDasharray: "3 3" }),
               React.createElement(XAxis, { dataKey: "status" }),
               React.createElement(YAxis, null),
               React.createElement(Tooltip, null),
-              React.createElement(Bar, { dataKey: "count", fill: "#3B82F6" })
+              React.createElement(Bar, { dataKey: "count", fill: "#3B82F6", radius: [6, 6, 0, 0] })
             )
           )
         )
       ),
-      // action items
-      React.createElement("div", { style: { marginTop: "24px" } },
-        React.createElement("h4", null, "Action Items"),
-        React.createElement("ul", null, actions.map((a, i) =>
-          React.createElement("li", { key: i, style: { marginBottom: "8px" } }, a)
-        ))
-      ),
-      // raw data toggle
-      React.createElement("div", { style: { marginTop: "24px", textAlign: "right" } },
-        React.createElement("button", {
-          className: "btn btn--outline",
-          onClick: () => {
-            const el = document.getElementById("qa-rawdata");
-            if (el) el.style.display = (el.style.display === "none") ? "block" : "none";
-          }
-        }, "📂 Toggle Raw Data"),
+
+      // Action items section
+      React.createElement("div", {
+        style: {
+          marginTop: "24px",
+          padding: "16px",
+          background: "var(--color-bg-1)",
+          borderRadius: "12px"
+        }
+      },
+        React.createElement("h4", { style: { marginBottom: "12px" } }, "Action Items"),
+        React.createElement("ul", null,
+          actions.map((a, i) =>
+            React.createElement("li", {
+              key: i,
+              style: {
+                marginBottom: "8px",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                background: a.startsWith("⚠️") ? "#FEF2F2" :
+                           a.startsWith("⏳") ? "#FFFBEB" :
+                           "#ECFDF5",
+                color: a.startsWith("⚠️") ? "#B91C1C" :
+                       a.startsWith("⏳") ? "#92400E" :
+                       "#065F46",
+                fontWeight: "500"
+              }
+            }, a)
+          )
+        )
+      )
+    ),
+
+    // --- Raw Data view
+    tab === "raw" && React.createElement("div", null,
+      rawDataTable,
+      React.createElement("div", { style: { marginTop: "16px", textAlign: "right" } },
         React.createElement("button", {
           className: "btn btn--primary",
-          style: { marginLeft: "12px" },
           onClick: () => app.exportQuickAssessmentCSV()
-        }, "⬇️ Export CSV")
-      ),
-      // raw data table
-      React.createElement("div", { id: "qa-rawdata", style: { display: "none", marginTop: "16px" } },
-        app.buildRawDataTable(rows)
+        }, "⬇️ Download CSV")
       )
-    );
-  }
+    )
+  );
+}
 
