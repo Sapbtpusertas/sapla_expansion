@@ -1636,76 +1636,52 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-  // Run Quick Assessment for current customer
   async runQuickAssessment() {
     try {
       if (!appState.currentCustomer) {
-        this.showNotification("❌ Please select a customer first", "error");
+        this.showNotification('❌ Please select a customer first', 'error');
         return;
       }
 
+      this.showNotification('📊 Running quick assessment...', 'info');
+
       const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
-      const res = await fetch(url, { method: "GET" });
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
       const payload = await res.json();
       const rows = payload.rows || [];
 
       if (!rows.length) {
-        this.showNotification("⚠️ No data available for Quick Assessment", "warning");
+        this.showNotification('⚠️ No data available for Quick Assessment', 'warning');
         return;
       }
 
-      // Build report table
+      // render modal with table
+      const headers = Object.keys(rows[0]);
       const tableHtml = `
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-          <thead style="position:sticky; top:0; background:var(--color-bg-2); z-index:1;">
-            <tr>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">System</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">Product Version</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">EOMM</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">Days Left</th>
-            </tr>
-          </thead>
+        <table class="data-table">
+          <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
           <tbody>
-            ${rows.map(r => {
-              const days = r.days_to_eomm ?? 9999;
-              let color = "var(--dashboard-success)"; // green
-              if (days <= 180 && days > 30) color = "var(--dashboard-warning)"; // yellow
-              else if (days <= 30) color = "var(--dashboard-danger)"; // red
-
-              return `
-                <tr>
-                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.tech_system_display_name || "—"}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.product_version_name || "—"}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.eomm || "—"}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--color-border); color:${color}; font-weight:bold;">
-                    ${days === 9999 ? "N/A" : days}
-                  </td>
-                </tr>
-              `;
-            }).join("")}
+            ${rows.map(r => `
+              <tr>${headers.map(h => `<td>${r[h] ?? ''}</td>`).join('')}</tr>
+            `).join('')}
           </tbody>
         </table>
       `;
 
-      // Show modal report
-      this.showModal("🚨 Quick Assessment Report", `
-        <div style="max-height:70vh; overflow-y:auto; padding:16px;">
-          <p>This report highlights SAP systems nearing or past end of mainstream maintenance (EOMM).</p>
+      this.showModal('Quick Assessment Results', `
+        <div style="padding:20px; max-height:70vh; overflow:auto;">
           ${tableHtml}
-          <div style="margin-top:16px; text-align:right;">
-            <button class="btn btn--outline" onclick="window.sapApp.exportQuickAssessment()">⬇ Export CSV</button>
-          </div>
         </div>
       `);
 
-      console.log("✅ Quick assessment loaded", rows);
     } catch (err) {
       console.error("Quick assessment failed", err);
-      this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
+      this.showNotification(`❌ Quick assessment failed: ${err.message}`, 'error');
     }
   }
+
 
     // Export quick assessment rows to CSV
   async exportQuickAssessment() {

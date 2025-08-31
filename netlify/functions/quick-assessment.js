@@ -8,22 +8,26 @@ export async function handler(event) {
 
     const supa = adminClient();
 
-    // Query the new view
+    // pull from v_quick_assessment
     const { data, error } = await supa
-      .from("v_quick_assessment")
-      .select("*")
-      .eq("customer_id", customer_id);
+      .from('v_quick_assessment')
+      .select('*')
+      .eq('customer_id', customer_id);
 
-    if (error) return bad(error.message, 500);
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return bad(error.message, 500);
+    }
 
-    return ok({
-      customer_id,
-      row_count: data.length,
-      records: data
-    });
+    if (!data || data.length === 0) {
+      console.warn("⚠️ No quick assessment rows found for", customer_id);
+      return ok({ rows: [] });
+    }
 
+    console.log(`✅ Quick assessment returned ${data.length} rows`);
+    return ok({ rows: data });
   } catch (err) {
-    console.error("quick-assessment error", err);
-    return bad(err.message || "Unknown error", 500);
+    console.error("❌ quick-assessment handler failed:", err);
+    return bad(err.message || "Server error", 500);
   }
 }
