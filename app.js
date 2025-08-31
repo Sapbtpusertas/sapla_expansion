@@ -1636,26 +1636,120 @@ viewCustomerDetails(customerId) {
     }, 1000);
   }
 
-    async runQuickAssessment() {
-    const customerId = appState.currentCustomer;
-    if (!customerId) {
-      this.showNotification("❌ Please select a customer first", "error");
-      return;
-    }
-
+  // Run Quick Assessment for current customer
+  async runQuickAssessment() {
     try {
-      // call backend
-      const res = await fetch(`/.netlify/functions/score?customer_id=${customerId}`);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const { by_category, latest_result } = await res.json();
+      if (!appState.currentCustomer) {
+        this.showNotification("❌ Please select a customer first", "error");
+        return;
+      }
 
-      // For now, just show popup with mismatches
-      this.showQuickAssessmentReport(by_category, latest_result);
+      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+      const payload = await res.json();
+      const rows = payload.rows || [];
+
+      if (!rows.length) {
+        this.showNotification("⚠️ No data available for Quick Assessment", "warning");
+        return;
+      }
+
+      // Build report table
+      const tableHtml = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead style="position:sticky; top:0; background:var(--color-bg-2); z-index:1;">
+            <tr>
+              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">System</th>
+              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">Product Version</th>
+              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">EOMM</th>
+              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--color-border);">Days Left</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const days = r.days_to_eomm ?? 9999;
+              let color = "var(--dashboard-success)"; // green
+              if (days <= 180 && days > 30) color = "var(--dashboard-warning)"; // yellow
+              else if (days <= 30) color = "var(--dashboard-danger)"; // red
+
+              return `
+                <tr>
+                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.tech_system_display_name || "—"}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.product_version_name || "—"}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--color-border);">${r.eomm || "—"}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--color-border); color:${color}; font-weight:bold;">
+                    ${days === 9999 ? "N/A" : days}
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
+      // Show modal report
+      this.showModal("🚨 Quick Assessment Report", `
+        <div style="max-height:70vh; overflow-y:auto; padding:16px;">
+          <p>This report highlights SAP systems nearing or past end of mainstream maintenance (EOMM).</p>
+          ${tableHtml}
+          <div style="margin-top:16px; text-align:right;">
+            <button class="btn btn--outline" onclick="window.sapApp.exportQuickAssessment()">⬇ Export CSV</button>
+          </div>
+        </div>
+      `);
+
+      console.log("✅ Quick assessment loaded", rows);
     } catch (err) {
       console.error("Quick assessment failed", err);
       this.showNotification(`❌ Quick assessment failed: ${err.message}`, "error");
     }
   }
+
+    // Export quick assessment rows to CSV
+  async exportQuickAssessment() {
+    try {
+      const url = `/.netlify/functions/quick-assessment?customer_id=${encodeURIComponent(appState.currentCustomer)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const payload = await res.json();
+      const rows = payload.rows || [];
+
+      if (!rows.length) {
+        this.showNotification("⚠️ No data to export", "warning");
+        return;
+      }
+
+      const headers = ["System", "Product Version", "EOMM", "Days Left"];
+      const csvRows = [headers.join(",")];
+
+      rows.forEach(r => {
+        csvRows.push([
+          r.tech_system_display_name,
+          r.product_version_name,
+          r.eomm,
+          r.days_to_eomm
+        ].join(","));
+      });
+
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `quick_assessment_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(urlObj);
+
+      this.showNotification("✅ Quick Assessment exported", "success");
+    } catch (err) {
+      console.error("Export failed", err);
+      this.showNotification("❌ Export failed", "error");
+    }
+}
+
 
   showQuickAssessmentReport(byCategory, latestResult) {
     const now = new Date();
