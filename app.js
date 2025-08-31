@@ -2627,45 +2627,18 @@ async runQuickAssessment() {
       return { card, body: card };
     };
 
-    // --- Pie Card: Status Distribution ---
+    // --- Status Distribution Pie Chart ---
     const { card: pieCard } = makeCard("Status Distribution");
     const pieWrapper = document.createElement("div");
     pieWrapper.style.position = "relative";
-    pieWrapper.style.height = "320px"; // bigger height
+    pieWrapper.style.height = "320px";
     const pieCanvas = document.createElement("canvas");
     pieCanvas.id = "qa-piechart-cvs";
     pieWrapper.appendChild(pieCanvas);
     pieCard.appendChild(pieWrapper);
 
-    // --- System Chart (bar) ---
-    const { card: sysCard } = makeCard("Systems by Status");
-    const sysWrapper = document.createElement("div");
-    sysWrapper.style.position = "relative";
-    sysWrapper.style.height = "350px"; // bigger height
-    const sysCanvas = document.createElement("canvas");
-    sysCanvas.id = "qa-syschart-cvs";
-    sysWrapper.appendChild(sysCanvas);
-    sysCard.appendChild(sysWrapper);
-
-    // charts grid
-    const chartsRow = document.createElement("div");
-    chartsRow.style.display = "grid";
-    chartsRow.style.gridTemplateColumns = "1fr 1fr";
-    chartsRow.style.gap = "25px"; // more space
-    chartsRow.appendChild(pieCard);
-    chartsRow.appendChild(sysCard);
-
-    // --- Action Items ---
-    const actionsCard = document.createElement("div");
-    actionsCard.style.background = "var(--color-bg-1)";
-    actionsCard.style.padding = "16px";
-    actionsCard.style.borderRadius = "12px";
-    actionsCard.style.boxShadow = "0 4px 10px rgba(0,0,0,0.08)";
-
-    const actionsTitle = document.createElement("h4");
-    actionsTitle.textContent = "Action Items";
-    actionsCard.appendChild(actionsTitle);
-
+    // --- Action Items Card ---
+    const { card: actionsCard } = makeCard("Action Items");
     const actionsList = document.createElement("ul");
     actionsList.style.listStyle = "none";
     actionsList.style.padding = "0";
@@ -2688,6 +2661,26 @@ async runQuickAssessment() {
       actionsList.appendChild(li);
     });
     actionsCard.appendChild(actionsList);
+
+    // --- Charts Row: Status Distribution + Action Items side by side ---
+    const topRow = document.createElement("div");
+    topRow.style.display = "grid";
+    topRow.style.gridTemplateColumns = "1fr 1fr";
+    topRow.style.gap = "25px";
+    topRow.appendChild(pieCard);
+    topRow.appendChild(actionsCard);
+    container.appendChild(topRow);
+
+    // --- Systems by Status Chart ---
+    const { card: sysCard } = makeCard("Systems by Status");
+    const sysWrapper = document.createElement("div");
+    sysWrapper.style.position = "relative";
+    sysWrapper.style.height = "350px";
+    const sysCanvas = document.createElement("canvas");
+    sysCanvas.id = "qa-syschart-cvs";
+    sysWrapper.appendChild(sysCanvas);
+    sysCard.appendChild(sysWrapper);
+    container.appendChild(sysCard);
 
     // --- Raw Data Collapsible + CSV Download ---
     const rawCard = document.createElement("div");
@@ -2716,19 +2709,12 @@ async runQuickAssessment() {
     };
     rawControls.appendChild(rawToggle);
 
+    // ✅ Use the existing export function
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "btn btn--primary";
     downloadBtn.style.marginLeft = "10px";
     downloadBtn.textContent = "📥 Download CSV";
-    downloadBtn.onclick = () => {
-      const csvContent = this.convertRowsToCSV(rows);
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "quick_assessment.csv");
-      link.click();
-    };
+    downloadBtn.onclick = () => this.exportQuickAssessmentCSV(); // connected here
     rawControls.appendChild(downloadBtn);
 
     rawHeader.appendChild(rawControls);
@@ -2743,11 +2729,8 @@ async runQuickAssessment() {
 
     rawCard.appendChild(rawHeader);
     rawCard.appendChild(rawBody);
-
-    // assemble
-    container.appendChild(chartsRow);
-    container.appendChild(actionsCard);
     container.appendChild(rawCard);
+
     root.appendChild(container);
 
     // --- Build Charts ---
@@ -2800,7 +2783,7 @@ async runQuickAssessment() {
         }
       });
 
-      // System Chart (bar)
+      // System Chart (vertical bar)
       const systems = {};
       rows.forEach(r => {
         const sys = r.tech_system_display_name || "Unknown System";
@@ -2815,24 +2798,21 @@ async runQuickAssessment() {
         backgroundColor: statusColors[status]
       }));
 
-      const sysChartType = "bar";
-      const sysIndexAxis = sysLabels.length > 10 ? "y" : "x";
-
       appState.quickAssessmentCharts.sys = new Chart(sysCanvas.getContext("2d"), {
-        type: sysChartType,
+        type: "bar",
         data: { labels: sysLabels, datasets: sysDatasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: { position: "bottom" },
-            datalabels: { display: false } // remove numbers on bars
+            datalabels: { display: false }
           },
           scales: {
             x: { stacked: true },
             y: { stacked: true, beginAtZero: true }
           },
-          indexAxis: sysIndexAxis
+          indexAxis: 'x' // always vertical bars
         }
       });
 
@@ -2840,6 +2820,7 @@ async runQuickAssessment() {
       console.error("Chart build error:", e);
     }
   }
+
 
 
 
