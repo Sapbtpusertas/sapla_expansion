@@ -1869,14 +1869,21 @@ viewCustomerDetails(customerId) {
         const rootEl = document.getElementById("qa-react-root");
         if (!rootEl) return;
 
-        // Keep global root cache (avoid multiple createRoot calls)
+        // ⚛️ React 18: use createRoot once and reuse
         if (!window._qaReactRoot) {
-          const { createRoot } = window.ReactDOMClient || window.ReactDOM;
-          window._qaReactRoot = createRoot(rootEl);
+          if (window.ReactDOM?.createRoot) {
+            console.log("⚛️ Using React 18 createRoot");
+            window._qaReactRoot = window.ReactDOM.createRoot(rootEl);
+          } else {
+            console.log("⚛️ Using ReactDOM.render fallback");
+            window._qaReactRoot = {
+              render: (comp) => window.ReactDOM.render(comp, rootEl)
+            };
+          }
         }
 
         window._qaReactRoot.render(
-          window.React.createElement(QuickAssessmentDashboard, { rows, summary })
+          window.React.createElement(QuickAssessmentDashboard, { rows, summary, app: this })
         );
       }, 50);
     } catch (err) {
