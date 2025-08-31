@@ -2720,7 +2720,7 @@ viewCustomerDetails(customerId) {
 });
 
   function QuickAssessmentDashboard({ rows, summary, app }) {
-    const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
+    const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = Recharts;
 
     const colors = {
       "OK": "#10B981",
