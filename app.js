@@ -1869,8 +1869,8 @@ viewCustomerDetails(customerId) {
         if (!rootEl) return;
 
         // use React 18 API
-        const { createRoot } = window.ReactDOMClient;
-        const root = createRoot(rootEl);
+        // const { createRoot } = window.ReactDOMClient;
+        const root = window.ReactDOM.createRoot(rootEl);
 
         root.render(
           window.React.createElement(QuickAssessmentDashboard, { rows, summary })
