@@ -1854,11 +1854,22 @@ viewCustomerDetails(customerId) {
 
       console.log("📊 Quick Assessment:", { rows, summary });
 
-      // ✅ cache rows for CSV export
+      // cache for export
       this._lastQuickAssessmentRows = rows;
 
-      // ✅ render beautiful report
-      this.renderQuickAssessmentReport(rows, summary);
+      // Open modal with React mount point
+      this.showModal("Quick Assessment Report", `<div id="qa-react-root" style="height:75vh;"></div>`);
+
+      // mount React after modal is in DOM
+      setTimeout(() => {
+        const root = document.getElementById("qa-react-root");
+        if (root) {
+          ReactDOM.render(
+            React.createElement(QuickAssessmentDashboard, { rows, summary, app: this }),
+            root
+          );
+        }
+      }, 0);
 
     } catch (err) {
       console.error("Quick assessment failed", err);
@@ -2704,3 +2715,84 @@ viewCustomerDetails(customerId) {
   console.log('✅ Modal system fully functional');
   console.log('📊 Ready for comprehensive testing!');
 });
+
+function QuickAssessmentDashboard({ rows, summary, app }) {
+  const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+  const colors = {
+    "OK": "#10B981",
+    "Expiring Soon": "#F59E0B",
+    "Expired": "#EF4444",
+    "Unknown": "#9CA3AF"
+  };
+
+  // Action items
+  const expired = summary.find(s => s.status === "Expired");
+  const soon = summary.find(s => s.status === "Expiring Soon");
+  const actions = [];
+  if (expired?.count > 0) actions.push(`⚠️ ${expired.count} expired products – upgrade required`);
+  if (soon?.count > 0) actions.push(`⏳ ${soon.count} products expiring soon – plan migration`);
+  if (!actions.length) actions.push("✅ All systems are up-to-date. No urgent items.");
+
+  // Raw table preview
+  const headers = Object.keys(rows[0] || []);
+  const previewRows = rows.slice(0, 50);
+
+  return React.createElement("div", { className: "p-4 space-y-6" },
+
+    // Charts
+    React.createElement("h3", { className: "text-xl font-bold" }, "Status Overview"),
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", height: "300px" } },
+      React.createElement(ResponsiveContainer, null,
+        React.createElement(PieChart, null,
+          React.createElement(Pie, { data: summary, dataKey: "count", nameKey: "status", label: true },
+            summary.map((s, i) => React.createElement(Cell, { key: i, fill: colors[s.status] }))
+          ),
+          React.createElement(Legend, null),
+          React.createElement(Tooltip, null)
+        )
+      ),
+      React.createElement(ResponsiveContainer, null,
+        React.createElement(BarChart, { data: summary },
+          React.createElement(XAxis, { dataKey: "status" }),
+          React.createElement(YAxis, null),
+          React.createElement(Tooltip, null),
+          React.createElement(Bar, { dataKey: "count" },
+            summary.map((s, i) => React.createElement(Cell, { key: i, fill: colors[s.status] }))
+          )
+        )
+      )
+    ),
+
+    // Actions
+    React.createElement("h3", { className: "text-lg font-semibold" }, "Action Items"),
+    React.createElement("ul", { className: "list-disc pl-6 text-sm" },
+      actions.map((a, i) => React.createElement("li", { key: i }, a))
+    ),
+
+    // Tabs
+    React.createElement("div", { className: "mt-6 flex gap-4" },
+      React.createElement("button", { className: "btn btn--primary", onClick: () => document.getElementById("qa-rawdata").style.display = "block" }, "📂 Show Raw Data"),
+      React.createElement("button", { className: "btn btn--outline", onClick: () => app.exportQuickAssessmentCSV() }, "⬇️ Export CSV")
+    ),
+
+    // Raw Data (hidden by default)
+    React.createElement("div", { id: "qa-rawdata", style: { display: "none", marginTop: "16px", overflow: "auto", maxHeight: "250px" } },
+      React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "12px" } },
+        React.createElement("thead", { style: { background: "var(--color-bg-2)" } },
+          React.createElement("tr", null,
+            headers.map((h, i) => React.createElement("th", { key: i, style: { padding: "6px", textAlign: "left" } }, h))
+          )
+        ),
+        React.createElement("tbody", null,
+          previewRows.map((r, i) =>
+            React.createElement("tr", { key: i },
+              headers.map((h, j) => React.createElement("td", { key: j, style: { padding: "4px", borderTop: "1px solid var(--color-border)" } }, r[h] ?? ""))
+            )
+          )
+        )
+      ),
+      rows.length > 50 && React.createElement("div", { style: { marginTop: "8px", fontStyle: "italic" } }, `Showing 50 of ${rows.length} rows…`)
+    )
+  );
+}
